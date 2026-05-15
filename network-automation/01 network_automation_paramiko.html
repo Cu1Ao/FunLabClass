@@ -1,0 +1,1911 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>网络自动化运维 - Paramiko实战</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#10b981',
+                        secondary: '#059669',
+                        accent: '#ef4444',
+                        dark: '#1f2937',
+                        light: '#f0fdf4',
+                        pink: '#fdf2f8',
+                        pinklight: '#fce7f3',
+                    },
+                    fontFamily: {
+                        sans: ['"Noto Sans SC"', 'sans-serif'],
+                        mono: ['"Courier New"', 'monospace'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        body {
+            font-family: 'Noto Sans SC', sans-serif;
+            background: #ffffff;
+            color: #1f2937;
+            overflow: hidden;
+        }
+        .slide {
+            width: 100vw;
+            height: 100vh;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+            opacity: 0;
+            transform: translateY(30px);
+            transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .slide.active {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .slide-content {
+            width: 100%;
+            max-width: 1400px;
+            height: 100%;
+            padding: 3rem 4rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            position: relative;
+            z-index: 10;
+        }
+        .nav-dot {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: rgba(16, 185, 129, 0.2);
+            border: 2px solid #10b981;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .nav-dot.active {
+            background: #10b981;
+            transform: scale(1.3);
+            box-shadow: 0 0 15px rgba(16, 185, 129, 0.5);
+        }
+        .code-block {
+            background: #1e1e2e;
+            border-radius: 12px;
+            padding: 1.25rem;
+            font-family: 'Courier New', monospace;
+            font-size: 1.1rem;
+            line-height: 1.6;
+            color: #a6e3a1;
+            overflow-x: auto;
+            border-left: 4px solid #10b981;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        }
+        .code-keyword { color: #cba6f7; }
+        .code-string { color: #f9e2af; }
+        .code-comment { color: #6c7086; }
+        .code-function { color: #89b4fa; }
+        .code-number { color: #fab387; }
+        .gradient-text {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .card {
+            background: white;
+            border-radius: 16px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 20px rgba(16, 185, 129, 0.08);
+            border: 1px solid rgba(16, 185, 129, 0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 40px rgba(16, 185, 129, 0.15);
+        }
+        .badge {
+            display: inline-block;
+            padding: 0.35rem 0.9rem;
+            border-radius: 9999px;
+            font-size: 0.875rem;
+            font-weight: 600;
+        }
+        .bg-pattern {
+            position: absolute;
+            inset: 0;
+            opacity: 0.03;
+            background-image: radial-gradient(circle at 1px 1px, #10b981 1px, transparent 0);
+            background-size: 40px 40px;
+        }
+        .floating-shape {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.15;
+            animation: float 20s infinite ease-in-out;
+        }
+        @keyframes float {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            33% { transform: translate(30px, -30px) scale(1.1); }
+            66% { transform: translate(-20px, 20px) scale(0.9); }
+        }
+        .network-line {
+            stroke: #10b981;
+            stroke-width: 2;
+            fill: none;
+            stroke-dasharray: 8 4;
+            animation: dash 30s linear infinite;
+        }
+        @keyframes dash {
+            to { stroke-dashoffset: -1000; }
+        }
+        .pulse-ring {
+            animation: pulse-ring 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+        }
+        @keyframes pulse-ring {
+            0% { transform: scale(0.8); opacity: 1; }
+            100% { transform: scale(2); opacity: 0; }
+        }
+        .typing-cursor::after {
+            content: '|';
+            animation: blink 1s infinite;
+            color: #10b981;
+        }
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+        .table-row:hover {
+            background: rgba(16, 185, 129, 0.05);
+        }
+        .progress-bar {
+            height: 4px;
+            background: linear-gradient(90deg, #10b981, #059669);
+            border-radius: 2px;
+            transition: width 0.3s ease;
+        }
+        .vibe-glow {
+            animation: vibe-glow 3s ease-in-out infinite alternate;
+        }
+        @keyframes vibe-glow {
+            from { box-shadow: 0 0 20px rgba(16, 185, 129, 0.2); }
+            to { box-shadow: 0 0 40px rgba(16, 185, 129, 0.4), 0 0 80px rgba(239, 68, 68, 0.1); }
+        }
+        .slide-number {
+            position: absolute;
+            bottom: 2rem;
+            right: 3rem;
+            font-size: 1rem;
+            color: rgba(16, 185, 129, 0.4);
+            font-weight: 700;
+        }
+        .hint-text {
+            position: absolute;
+            bottom: 2rem;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.875rem;
+            color: rgba(16, 185, 129, 0.5);
+            animation: bounce 2s infinite;
+        }
+        @keyframes bounce {
+            0%, 100% { transform: translateX(-50%) translateY(0); }
+            50% { transform: translateX(-50%) translateY(-8px); }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 右侧导航圆点 -->
+    <div class="fixed right-6 top-1/2 -translate-y-1/2 z-50 flex flex-col gap-3" id="navDots"></div>
+
+    <!-- 进度条 -->
+    <div class="fixed top-0 left-0 h-1 bg-primary z-50" id="progressBar" style="width: 0%"></div>
+
+    <!-- 第1页：封面 -->
+    <section class="slide active" data-index="0">
+        <div class="bg-pattern"></div>
+        <div class="floating-shape bg-primary" style="width: 400px; height: 400px; top: -100px; right: -100px;"></div>
+        <div class="floating-shape bg-pink-400" style="width: 300px; height: 300px; bottom: -50px; left: -50px; animation-delay: -5s;"></div>
+
+        <div class="slide-content text-center">
+            <div class="mb-8">
+                <div class="inline-flex items-center gap-3 px-6 py-3 rounded-full bg-light border border-primary/20 mb-8">
+                    <span class="w-3 h-3 rounded-full bg-primary animate-pulse"></span>
+                    <span class="text-lg font-medium text-secondary">《网络自动化运维》课程演示</span>
+                </div>
+            </div>
+
+            <h1 class="text-6xl font-black mb-6 leading-tight">
+                <span class="gradient-text">Paramiko</span>
+                <span class="text-dark">实战</span>
+            </h1>
+            <h2 class="text-4xl font-bold text-gray-600 mb-10">网络设备自动化巡检</h2>
+
+            <div class="flex justify-center gap-6 mb-12">
+                <div class="card flex items-center gap-3 px-6 py-4">
+                    <span class="text-3xl">🔐</span>
+                    <div class="text-left">
+                        <div class="text-xl font-bold text-dark">SSHv2</div>
+                        <div class="text-sm text-gray-500">安全远程连接</div>
+                    </div>
+                </div>
+                <div class="card flex items-center gap-3 px-6 py-4">
+                    <span class="text-3xl">🐍</span>
+                    <div class="text-left">
+                        <div class="text-xl font-bold text-dark">Python</div>
+                        <div class="text-sm text-gray-500">纯Python实现</div>
+                    </div>
+                </div>
+                <div class="card flex items-center gap-3 px-6 py-4">
+                    <span class="text-3xl">🤖</span>
+                    <div class="text-left">
+                        <div class="text-xl font-bold text-dark">Vibe Coding</div>
+                        <div class="text-sm text-gray-500">AI辅助开发</div>
+                    </div>
+                </div>
+            </div>
+
+            <p class="text-xl text-gray-500 font-medium">青岛幼儿师范高等专科学校 · 电子信息学院</p>
+            <div class="hint-text">↓ 滚动或按方向键开始</div>
+        </div>
+        <div class="slide-number">01 / 20</div>
+    </section>
+
+    <!-- 第2页：课程导航 -->
+    <section class="slide" data-index="1">
+        <div class="bg-pattern"></div>
+        <div class="slide-content">
+            <div class="mb-8">
+                <span class="badge bg-light text-primary mb-4">CONTENTS</span>
+                <h2 class="text-5xl font-black text-dark">课程导航</h2>
+            </div>
+
+            <div class="grid grid-cols-2 gap-6">
+                <div class="card border-l-4 border-primary">
+                    <div class="flex items-start gap-4">
+                        <div class="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center text-2xl font-black text-primary shrink-0">01</div>
+                        <div>
+                            <h3 class="text-2xl font-bold text-dark mb-2">Paramiko 模块基础</h3>
+                            <p class="text-lg text-gray-600 leading-relaxed">SSH协议原理、模块安装、组件架构与核心类介绍</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="card border-l-4 border-secondary">
+                    <div class="flex items-start gap-4">
+                        <div class="w-14 h-14 rounded-xl bg-secondary/10 flex items-center justify-center text-2xl font-black text-secondary shrink-0">02</div>
+                        <div>
+                            <h3 class="text-2xl font-bold text-dark mb-2">核心类与API详解</h3>
+                            <p class="text-lg text-gray-600 leading-relaxed">SSHClient、SFTPClient、Transport、密钥管理</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="card border-l-4 border-primary">
+                    <div class="flex items-start gap-4">
+                        <div class="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center text-2xl font-black text-primary shrink-0">03</div>
+                        <div>
+                            <h3 class="text-2xl font-bold text-dark mb-2">eNSP 设备连接实战</h3>
+                            <p class="text-lg text-gray-600 leading-relaxed">密码认证、交互式Shell、公钥认证、SFTP传输</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="card border-l-4 border-accent">
+                    <div class="flex items-start gap-4">
+                        <div class="w-14 h-14 rounded-xl bg-accent/10 flex items-center justify-center text-2xl font-black text-accent shrink-0">04</div>
+                        <div>
+                            <h3 class="text-2xl font-bold text-dark mb-2">自动化巡检系统</h3>
+                            <p class="text-lg text-gray-600 leading-relaxed">巡检需求分析、完整系统设计、批量设备巡检</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="card border-l-4 border-purple-500">
+                    <div class="flex items-start gap-4">
+                        <div class="w-14 h-14 rounded-xl bg-purple-500/10 flex items-center justify-center text-2xl font-black text-purple-500 shrink-0">05</div>
+                        <div>
+                            <h3 class="text-2xl font-bold text-dark mb-2">🤖 Vibe Coding</h3>
+                            <p class="text-lg text-gray-600 leading-relaxed">AI辅助生成Paramiko代码，自然语言编程实战</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="card border-l-4 border-orange-500">
+                    <div class="flex items-start gap-4">
+                        <div class="w-14 h-14 rounded-xl bg-orange-500/10 flex items-center justify-center text-2xl font-black text-orange-500 shrink-0">06</div>
+                        <div>
+                            <h3 class="text-2xl font-bold text-dark mb-2">实验设计</h3>
+                            <p class="text-lg text-gray-600 leading-relaxed">基础连接、交互式Shell、SFTP传输、综合系统</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="slide-number">02 / 20</div>
+    </section>
+
+    <!-- 第3页：Paramiko介绍 -->
+    <section class="slide" data-index="2">
+        <div class="bg-pattern"></div>
+        <div class="slide-content">
+            <div class="mb-6">
+                <span class="badge bg-light text-primary mb-3">3.1 模块介绍</span>
+                <h2 class="text-5xl font-black text-dark mb-4">Paramiko 是什么？</h2>
+            </div>
+
+            <div class="grid grid-cols-5 gap-6">
+                <div class="col-span-3 space-y-5">
+                    <div class="card">
+                        <h3 class="text-2xl font-bold text-dark mb-3 flex items-center gap-2">
+                            <span class="text-primary">📌</span> 核心定位
+                        </h3>
+                        <ul class="space-y-3 text-lg text-gray-700 leading-relaxed">
+                            <li class="flex items-start gap-3">
+                                <span class="text-primary mt-1">▸</span>
+                                <span><strong>纯 Python 实现</strong>，无需额外依赖 OpenSSH 客户端</span>
+                            </li>
+                            <li class="flex items-start gap-3">
+                                <span class="text-primary mt-1">▸</span>
+                                <span>支持<strong>口令认证</strong>和<strong>公钥认证</strong>两种方式</span>
+                            </li>
+                            <li class="flex items-start gap-3">
+                                <span class="text-primary mt-1">▸</span>
+                                <span>提供 SSH 客户端<strong>和服务器</strong>功能</span>
+                            </li>
+                            <li class="flex items-start gap-3">
+                                <span class="text-primary mt-1">▸</span>
+                                <span>实现安全的<strong>远程命令执行</strong>和<strong>文件传输</strong></span>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <div class="card bg-pink border-pinklight">
+                        <h3 class="text-2xl font-bold text-dark mb-3">💡 名称由来</h3>
+                        <p class="text-lg text-gray-700 leading-relaxed">由 Robey Pointer 开发，名称来自 <span class="font-mono bg-white px-2 py-1 rounded text-primary">"paramiko"</span>（具有怪异性参数的 SSH），是 Python 实现 <strong>SSHv2 协议</strong>的第三方模块。</p>
+                    </div>
+                </div>
+
+                <div class="col-span-2">
+                    <div class="card h-full border-2 border-primary/20">
+                        <h3 class="text-2xl font-bold text-dark mb-4 text-center">🔍 与 Telnetlib 对比</h3>
+                        <div class="space-y-3">
+                            <div class="flex items-center justify-between p-3 bg-red-50 rounded-lg">
+                                <span class="text-lg font-bold text-gray-500">Telnetlib</span>
+                                <span class="badge bg-red-100 text-red-600">不推荐</span>
+                            </div>
+                            <div class="flex items-center justify-between p-3 bg-green-50 rounded-lg border-2 border-primary">
+                                <span class="text-lg font-bold text-primary">Paramiko</span>
+                                <span class="badge bg-primary text-white">强烈推荐</span>
+                            </div>
+                            <div class="space-y-2 text-base">
+                                <div class="flex justify-between py-2 border-b border-gray-100">
+                                    <span class="text-gray-600">安全性</span>
+                                    <div class="flex gap-4">
+                                        <span class="text-red-500">明文 ⚠️</span>
+                                        <span class="text-primary font-bold">加密 ✅</span>
+                                    </div>
+                                </div>
+                                <div class="flex justify-between py-2 border-b border-gray-100">
+                                    <span class="text-gray-600">认证方式</span>
+                                    <div class="flex gap-4">
+                                        <span class="text-gray-500">仅密码</span>
+                                        <span class="text-primary font-bold">密码+公钥</span>
+                                    </div>
+                                </div>
+                                <div class="flex justify-between py-2 border-b border-gray-100">
+                                    <span class="text-gray-600">功能扩展</span>
+                                    <div class="flex gap-4">
+                                        <span class="text-gray-500">仅命令</span>
+                                        <span class="text-primary font-bold">命令+文件+端口转发</span>
+                                    </div>
+                                </div>
+                                <div class="flex justify-between py-2">
+                                    <span class="text-gray-600">生产环境</span>
+                                    <div class="flex gap-4">
+                                        <span class="text-red-500">不安全</span>
+                                        <span class="text-primary font-bold">企业级</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="slide-number">03 / 20</div>
+    </section>
+
+    <!-- 第4页：安装Paramiko -->
+    <section class="slide" data-index="3">
+        <div class="bg-pattern"></div>
+        <div class="slide-content">
+            <div class="mb-8">
+                <span class="badge bg-light text-primary mb-3">环境准备</span>
+                <h2 class="text-5xl font-black text-dark mb-4">安装 Paramiko</h2>
+                <p class="text-xl text-gray-500">推荐使用国内镜像源加速安装</p>
+            </div>
+
+            <div class="grid grid-cols-2 gap-8">
+                <div class="space-y-6">
+                    <div class="card">
+                        <div class="flex items-center gap-3 mb-4">
+                            <span class="badge bg-primary text-white">步骤 1</span>
+                            <h3 class="text-2xl font-bold text-dark">基础安装</h3>
+                        </div>
+                        <div class="code-block">
+                            <span class="code-comment"># 默认安装（可能较慢）</span><br>
+                            pip install paramiko<br><br>
+                            <span class="code-comment"># 国内镜像加速（推荐）</span><br>
+                            pip install paramiko -i \<br>
+                            &nbsp;&nbsp;https://mirrors.aliyun.com/pypi/simple/ \<br>
+                            &nbsp;&nbsp;--trusted-host mirrors.aliyun.com
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="flex items-center gap-3 mb-4">
+                            <span class="badge bg-secondary text-white">步骤 2</span>
+                            <h3 class="text-2xl font-bold text-dark">验证安装</h3>
+                        </div>
+                        <div class="code-block">
+                            <span class="code-keyword">import</span> paramiko<br>
+                            <span class="code-function">print</span>(paramiko.__version__)<br>
+                            <span class="code-comment"># 输出: 2.7.2 或 3.x.x</span>
+                        </div>
+                        <div class="mt-4 p-4 bg-light rounded-lg">
+                            <p class="text-lg text-secondary font-medium">✅ 安装成功标志：无报错且能输出版本号</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card bg-gradient-to-br from-light to-white border-primary/20">
+                    <h3 class="text-2xl font-bold text-dark mb-6 flex items-center gap-2">
+                        <span class="text-accent">⚠️</span> 常见问题
+                    </h3>
+                    <div class="space-y-4">
+                        <div class="p-4 bg-white rounded-lg border border-gray-100">
+                            <p class="text-lg font-bold text-dark mb-2">❌ 报错：Microsoft Visual C++ 14.0 is required</p>
+                            <p class="text-base text-gray-600 mb-2">原因：缺少编译环境</p>
+                            <p class="text-base text-primary">解决：pip install --only-binary :all: paramiko</p>
+                        </div>
+                        <div class="p-4 bg-white rounded-lg border border-gray-100">
+                            <p class="text-lg font-bold text-dark mb-2">❌ 报错：No module named 'cryptography'</p>
+                            <p class="text-base text-gray-600 mb-2">原因：依赖库未自动安装</p>
+                            <p class="text-base text-primary">解决：pip install cryptography paramiko</p>
+                        </div>
+                        <div class="p-4 bg-white rounded-lg border border-gray-100">
+                            <p class="text-lg font-bold text-dark mb-2">❌ 连接超时或拒绝</p>
+                            <p class="text-base text-gray-600 mb-2">原因：设备未开启SSH或防火墙拦截</p>
+                            <p class="text-base text-primary">解决：检查设备SSH服务与网络连通性</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="slide-number">04 / 20</div>
+    </section>
+
+    <!-- 第5页：组件架构 -->
+    <section class="slide" data-index="4">
+        <div class="bg-pattern"></div>
+        <div class="slide-content">
+            <div class="mb-6">
+                <span class="badge bg-light text-primary mb-3">架构设计</span>
+                <h2 class="text-5xl font-black text-dark mb-4">Paramiko 组件架构</h2>
+            </div>
+
+            <div class="flex justify-center">
+                <div class="relative w-full max-w-5xl">
+                    <!-- 架构图 SVG -->
+                    <svg viewBox="0 0 900 500" class="w-full">
+                        <!-- 背景框 -->
+                        <rect x="50" y="20" width="800" height="460" rx="16" fill="#f0fdf4" stroke="#10b981" stroke-width="2" stroke-dasharray="8 4"/>
+                        <text x="450" y="55" text-anchor="middle" class="text-xl font-bold" fill="#059669" style="font-size: 18px; font-weight: 700;">Paramiko 架构层次</text>
+
+                        <!-- 密钥相关类 -->
+                        <rect x="80" y="80" width="740" height="100" rx="12" fill="#fdf2f8" stroke="#ec4899" stroke-width="2"/>
+                        <text x="450" y="110" text-anchor="middle" fill="#be185d" style="font-size: 16px; font-weight: 700;">🔐 密钥相关类</text>
+                        <text x="200" y="145" text-anchor="middle" fill="#9d174d" style="font-size: 14px;">SSH Agent（SSH代理）</text>
+                        <text x="450" y="145" text-anchor="middle" fill="#9d174d" style="font-size: 14px;">Host Keys（主机密钥管理）</text>
+                        <text x="700" y="145" text-anchor="middle" fill="#9d174d" style="font-size: 14px;">Key Handling（RSA/DSA密钥）</text>
+
+                        <!-- 常用协议类 -->
+                        <rect x="80" y="210" width="740" height="180" rx="12" fill="#ecfdf5" stroke="#10b981" stroke-width="2"/>
+                        <text x="450" y="240" text-anchor="middle" fill="#059669" style="font-size: 16px; font-weight: 700;">📡 常用协议类</text>
+
+                        <!-- 协议类内部 -->
+                        <rect x="110" y="260" width="120" height="50" rx="8" fill="white" stroke="#10b981" stroke-width="1.5"/>
+                        <text x="170" y="290" text-anchor="middle" fill="#1f2937" style="font-size: 13px; font-weight: 600;">Channel</text>
+
+                        <rect x="250" y="260" width="120" height="50" rx="8" fill="white" stroke="#10b981" stroke-width="1.5"/>
+                        <text x="310" y="290" text-anchor="middle" fill="#1f2937" style="font-size: 13px; font-weight: 600;">Message</text>
+
+                        <rect x="390" y="260" width="120" height="50" rx="8" fill="white" stroke="#10b981" stroke-width="1.5"/>
+                        <text x="450" y="290" text-anchor="middle" fill="#1f2937" style="font-size: 13px; font-weight: 600;">Packetizer</text>
+
+                        <rect x="530" y="260" width="120" height="50" rx="8" fill="white" stroke="#10b981" stroke-width="1.5"/>
+                        <text x="590" y="290" text-anchor="middle" fill="#1f2937" style="font-size: 13px; font-weight: 600;">Transport</text>
+
+                        <rect x="250" y="330" width="180" height="50" rx="8" fill="#10b981" stroke="#059669" stroke-width="2"/>
+                        <text x="340" y="360" text-anchor="middle" fill="white" style="font-size: 14px; font-weight: 700;">SSHClient ⭐</text>
+
+                        <rect x="470" y="330" width="180" height="50" rx="8" fill="#059669" stroke="#047857" stroke-width="2"/>
+                        <text x="560" y="360" text-anchor="middle" fill="white" style="font-size: 14px; font-weight: 700;">SFTPClient ⭐</text>
+
+                        <!-- 基础层 -->
+                        <rect x="80" y="410" width="740" height="50" rx="12" fill="#e0e7ff" stroke="#6366f1" stroke-width="2"/>
+                        <text x="450" y="442" text-anchor="middle" fill="#4338ca" style="font-size: 15px; font-weight: 700;">🔧 Paramiko 基础层（加密算法、套接字管理、协议解析）</text>
+
+                        <!-- 连接线 -->
+                        <line x1="170" y1="310" x2="340" y2="330" stroke="#10b981" stroke-width="1.5" stroke-dasharray="4 2"/>
+                        <line x1="310" y1="310" x2="340" y2="330" stroke="#10b981" stroke-width="1.5" stroke-dasharray="4 2"/>
+                        <line x1="450" y1="310" x2="430" y2="330" stroke="#10b981" stroke-width="1.5" stroke-dasharray="4 2"/>
+                        <line x1="590" y1="310" x2="560" y2="330" stroke="#10b981" stroke-width="1.5" stroke-dasharray="4 2"/>
+                    </svg>
+
+                    <div class="mt-4 flex justify-center gap-6">
+                        <div class="flex items-center gap-2">
+                            <div class="w-4 h-4 rounded bg-primary"></div>
+                            <span class="text-base text-gray-600">最常用：SSHClient & SFTPClient</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="w-4 h-4 rounded bg-pink-400"></div>
+                            <span class="text-base text-gray-600">密钥层：安全认证基础</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="slide-number">05 / 20</div>
+    </section>
+
+    <!-- 第6页：SSHClient类 -->
+    <section class="slide" data-index="5">
+        <div class="bg-pattern"></div>
+        <div class="slide-content">
+            <div class="mb-6">
+                <span class="badge bg-light text-primary mb-3">3.2 核心类</span>
+                <h2 class="text-5xl font-black text-dark mb-2">SSHClient 类</h2>
+                <p class="text-xl text-gray-500">SSH 会话的高级封装 · 最常用类</p>
+            </div>
+
+            <div class="grid grid-cols-2 gap-6">
+                <div class="space-y-4">
+                    <div class="card">
+                        <h3 class="text-2xl font-bold text-dark mb-4">🔌 connect() 方法</h3>
+                        <p class="text-lg text-gray-600 mb-3">连接并认证远程服务器（<strong>hostname 必填</strong>）</p>
+                        <div class="code-block text-base">
+                            client.<span class="code-function">connect</span>(<br>
+                            &nbsp;&nbsp;hostname=<span class="code-string">'192.168.1.1'</span>,&nbsp;&nbsp;<span class="code-comment"># 目标主机（必填）</span><br>
+                            &nbsp;&nbsp;port=<span class="code-number">22</span>,&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="code-comment"># SSH端口</span><br>
+                            &nbsp;&nbsp;username=<span class="code-string">'admin'</span>,&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="code-comment"># 用户名</span><br>
+                            &nbsp;&nbsp;password=<span class="code-string">'Huawei@123'</span>,&nbsp;<span class="code-comment"># 密码</span><br>
+                            &nbsp;&nbsp;pkey=<span class="code-keyword">None</span>,&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="code-comment"># 私钥对象</span><br>
+                            &nbsp;&nbsp;timeout=<span class="code-number">10</span>,&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="code-comment"># 超时秒数</span><br>
+                            &nbsp;&nbsp;compress=<span class="code-keyword">False</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="code-comment"># 是否压缩</span><br>
+                            )
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <h3 class="text-2xl font-bold text-dark mb-4">⚡ 其他核心方法</h3>
+                        <div class="space-y-2 text-lg">
+                            <div class="flex justify-between items-center py-2 border-b border-gray-100">
+                                <code class="text-primary font-bold">exec_command()</code>
+                                <span class="text-gray-600">执行远程命令</span>
+                            </div>
+                            <div class="flex justify-between items-center py-2 border-b border-gray-100">
+                                <code class="text-primary font-bold">invoke_shell()</code>
+                                <span class="text-gray-600">交互式Shell</span>
+                            </div>
+                            <div class="flex justify-between items-center py-2 border-b border-gray-100">
+                                <code class="text-primary font-bold">open_sftp()</code>
+                                <span class="text-gray-600">创建SFTP会话</span>
+                            </div>
+                            <div class="flex justify-between items-center py-2">
+                                <code class="text-primary font-bold">close()</code>
+                                <span class="text-gray-600">关闭连接</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card bg-gradient-to-br from-light to-white h-full">
+                    <h3 class="text-2xl font-bold text-dark mb-4">📋 方法速查表</h3>
+                    <div class="overflow-hidden rounded-lg border border-primary/20">
+                        <table class="w-full text-base">
+                            <thead class="bg-primary text-white">
+                                <tr>
+                                    <th class="px-4 py-3 text-left">方法</th>
+                                    <th class="px-4 py-3 text-left">功能</th>
+                                    <th class="px-4 py-3 text-left">返回值</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-primary/10">
+                                <tr class="table-row bg-white">
+                                    <td class="px-4 py-3 font-mono text-primary font-bold">connect()</td>
+                                    <td class="px-4 py-3">连接认证</td>
+                                    <td class="px-4 py-3 text-gray-500">None</td>
+                                </tr>
+                                <tr class="table-row bg-light/50">
+                                    <td class="px-4 py-3 font-mono text-primary font-bold">exec_command()</td>
+                                    <td class="px-4 py-3">执行命令</td>
+                                    <td class="px-4 py-3 text-gray-500">(stdin, stdout, stderr)</td>
+                                </tr>
+                                <tr class="table-row bg-white">
+                                    <td class="px-4 py-3 font-mono text-primary font-bold">invoke_shell()</td>
+                                    <td class="px-4 py-3">交互式Shell</td>
+                                    <td class="px-4 py-3 text-gray-500">Channel对象</td>
+                                </tr>
+                                <tr class="table-row bg-light/50">
+                                    <td class="px-4 py-3 font-mono text-primary font-bold">open_sftp()</td>
+                                    <td class="px-4 py-3">SFTP会话</td>
+                                    <td class="px-4 py-3 text-gray-500">SFTPClient</td>
+                                </tr>
+                                <tr class="table-row bg-white">
+                                    <td class="px-4 py-3 font-mono text-primary font-bold">load_system_host_keys()</td>
+                                    <td class="px-4 py-3">加载已知主机</td>
+                                    <td class="px-4 py-3 text-gray-500">None</td>
+                                </tr>
+                                <tr class="table-row bg-light/50">
+                                    <td class="px-4 py-3 font-mono text-primary font-bold">set_missing_host_key_policy()</td>
+                                    <td class="px-4 py-3">未知主机策略</td>
+                                    <td class="px-4 py-3 text-gray-500">None</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="mt-4 p-3 bg-pink rounded-lg">
+                        <p class="text-base text-gray-700">💡 <strong>教材对应：</strong>第138-140页详细介绍了 SSHClient 类的使用</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="slide-number">06 / 20</div>
+    </section>
+
+    <!-- 第7页：主机密钥策略 -->
+    <section class="slide" data-index="6">
+        <div class="bg-pattern"></div>
+        <div class="slide-content">
+            <div class="mb-8">
+                <span class="badge bg-light text-primary mb-3">安全策略</span>
+                <h2 class="text-5xl font-black text-dark mb-4">主机密钥策略</h2>
+                <p class="text-xl text-gray-500">set_missing_host_key_policy() · 应对未知主机</p>
+            </div>
+
+            <div class="grid grid-cols-3 gap-6">
+                <div class="card border-t-4 border-primary vibe-glow">
+                    <div class="flex items-center gap-3 mb-4">
+                        <div class="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-2xl">✅</div>
+                        <div>
+                            <h3 class="text-2xl font-bold text-primary">AutoAddPolicy</h3>
+                            <span class="badge bg-primary text-white text-sm">推荐</span>
+                        </div>
+                    </div>
+                    <p class="text-lg text-gray-700 leading-relaxed mb-4">自动添加主机名及主机密钥到本地 HostKeys 对象，<strong>不提示确认</strong></p>
+                    <div class="code-block text-base">
+                        client.set_missing_host_key_policy(<br>
+                        &nbsp;&nbsp;paramiko.AutoAddPolicy()<br>
+                        )
+                    </div>
+                    <div class="mt-4 p-3 bg-green-50 rounded-lg">
+                        <p class="text-base text-green-700">🎯 <strong>适用场景：</strong>自动化脚本、批量运维</p>
+                    </div>
+                </div>
+
+                <div class="card border-t-4 border-yellow-500">
+                    <div class="flex items-center gap-3 mb-4">
+                        <div class="w-12 h-12 rounded-full bg-yellow-50 flex items-center justify-center text-2xl">⚠️</div>
+                        <div>
+                            <h3 class="text-2xl font-bold text-yellow-600">WarningPolicy</h3>
+                            <span class="badge bg-yellow-100 text-yellow-700 text-sm">调试</span>
+                        </div>
+                    </div>
+                    <p class="text-lg text-gray-700 leading-relaxed mb-4">记录未知主机的 Python 警告，<strong>允许连接但提示</strong>新连接</p>
+                    <div class="code-block text-base">
+                        client.set_missing_host_key_policy(<br>
+                        &nbsp;&nbsp;paramiko.WarningPolicy()<br>
+                        )
+                    </div>
+                    <div class="mt-4 p-3 bg-yellow-50 rounded-lg">
+                        <p class="text-base text-yellow-700">🎯 <strong>适用场景：</strong>开发调试阶段</p>
+                    </div>
+                </div>
+
+                <div class="card border-t-4 border-accent">
+                    <div class="flex items-center gap-3 mb-4">
+                        <div class="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center text-2xl">🚫</div>
+                        <div>
+                            <h3 class="text-2xl font-bold text-accent">RejectPolicy</h3>
+                            <span class="badge bg-red-100 text-accent text-sm">默认</span>
+                        </div>
+                    </div>
+                    <p class="text-lg text-gray-700 leading-relaxed mb-4">自动<strong>拒绝</strong>未知主机名和密钥，依赖 load_system_host_keys</p>
+                    <div class="code-block text-base">
+                        client.set_missing_host_key_policy(<br>
+                        &nbsp;&nbsp;paramiko.RejectPolicy()<br>
+                        )
+                    </div>
+                    <div class="mt-4 p-3 bg-red-50 rounded-lg">
+                        <p class="text-base text-accent">🎯 <strong>适用场景：</strong>高安全环境、手动管理</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-6 card bg-pink">
+                <p class="text-lg text-gray-700 text-center">📚 <strong>教材第140页：</strong>三种策略的详细对比与代码示例</p>
+            </div>
+        </div>
+        <div class="slide-number">07 / 20</div>
+    </section>
+
+    <!-- 第8页：SFTPClient类 -->
+    <section class="slide" data-index="7">
+        <div class="bg-pattern"></div>
+        <div class="slide-content">
+            <div class="mb-6">
+                <span class="badge bg-light text-primary mb-3">文件传输</span>
+                <h2 class="text-5xl font-black text-dark mb-2">SFTPClient 类</h2>
+                <p class="text-xl text-gray-500">基于SSH传输的安全文件操作 · 教材第133页</p>
+            </div>
+
+            <div class="grid grid-cols-5 gap-6">
+                <div class="col-span-2 space-y-4">
+                    <div class="card">
+                        <h3 class="text-2xl font-bold text-dark mb-3">📥 下载文件</h3>
+                        <div class="code-block">
+                            <span class="code-comment"># 从远程下载到本地</span><br>
+                            sftp.<span class="code-function">get</span>(<br>
+                            &nbsp;&nbsp;<span class="code-string">'/vrpcfg.zip'</span>,&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="code-comment"># 远程路径</span><br>
+                            &nbsp;&nbsp;<span class="code-string">'./backup.zip'</span>&nbsp;&nbsp;&nbsp;&nbsp;<span class="code-comment"># 本地路径</span><br>
+                            )
+                        </div>
+                    </div>
+                    <div class="card">
+                        <h3 class="text-2xl font-bold text-dark mb-3">📤 上传文件</h3>
+                        <div class="code-block">
+                            <span class="code-comment"># 从本地上传到远程</span><br>
+                            sftp.<span class="code-function">put</span>(<br>
+                            &nbsp;&nbsp;<span class="code-string">'./script.py'</span>,&nbsp;&nbsp;&nbsp;&nbsp;<span class="code-comment"># 本地路径</span><br>
+                            &nbsp;&nbsp;<span class="code-string">'/flash:/script.py'</span>&nbsp;<span class="code-comment"># 远程路径</span><br>
+                            )
+                        </div>
+                    </div>
+                    <div class="card">
+                        <h3 class="text-2xl font-bold text-dark mb-3">🔧 创建方式</h3>
+                        <div class="code-block">
+                            <span class="code-comment"># 从Transport创建</span><br>
+                            transport = paramiko.Transport((host, <span class="code-number">22</span>))<br>
+                            transport.connect(...) <br>
+                            sftp = paramiko.SFTPClient.<span class="code-function">from_transport</span>(transport)
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-span-3">
+                    <div class="card h-full">
+                        <h3 class="text-2xl font-bold text-dark mb-4">📋 方法大全</h3>
+                        <div class="overflow-hidden rounded-lg border border-primary/20">
+                            <table class="w-full text-base">
+                                <thead class="bg-primary text-white">
+                                    <tr>
+                                        <th class="px-4 py-3 text-left">方法</th>
+                                        <th class="px-4 py-3 text-left">功能</th>
+                                        <th class="px-4 py-3 text-left">示例参数</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-primary/10">
+                                    <tr class="table-row bg-white"><td class="px-4 py-3 font-mono text-primary font-bold">get()</td><td class="px-4 py-3">下载远程文件</td><td class="px-4 py-3 text-gray-500">remotepath, localpath</td></tr>
+                                    <tr class="table-row bg-light/50"><td class="px-4 py-3 font-mono text-primary font-bold">put()</td><td class="px-4 py-3">上传本地文件</td><td class="px-4 py-3 text-gray-500">localpath, remotepath</td></tr>
+                                    <tr class="table-row bg-white"><td class="px-4 py-3 font-mono text-primary font-bold">mkdir()</td><td class="px-4 py-3">创建目录</td><td class="px-4 py-3 text-gray-500">path</td></tr>
+                                    <tr class="table-row bg-light/50"><td class="px-4 py-3 font-mono text-primary font-bold">remove()</td><td class="px-4 py-3">删除文件</td><td class="px-4 py-3 text-gray-500">path</td></tr>
+                                    <tr class="table-row bg-white"><td class="px-4 py-3 font-mono text-primary font-bold">rename()</td><td class="px-4 py-3">重命名</td><td class="px-4 py-3 text-gray-500">src, dst</td></tr>
+                                    <tr class="table-row bg-light/50"><td class="px-4 py-3 font-mono text-primary font-bold">stat()</td><td class="px-4 py-3">查看状态</td><td class="px-4 py-3 text-gray-500">path → st_size等</td></tr>
+                                    <tr class="table-row bg-white"><td class="px-4 py-3 font-mono text-primary font-bold">listdir()</td><td class="px-4 py-3">列出目录</td><td class="px-4 py-3 text-gray-500">path（默认当前）</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="mt-4 p-4 bg-light rounded-lg">
+                            <p class="text-lg text-secondary">💡 <strong>典型应用：</strong>网络设备配置备份、脚本批量下发、日志集中采集</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="slide-number">08 / 20</div>
+    </section>
+
+    <!-- 第9页：Transport与Key handling -->
+    <section class="slide" data-index="8">
+        <div class="bg-pattern"></div>
+        <div class="slide-content">
+            <div class="mb-6">
+                <span class="badge bg-light text-primary mb-3">底层机制</span>
+                <h2 class="text-5xl font-black text-dark mb-2">Transport & 密钥管理</h2>
+            </div>
+
+            <div class="grid grid-cols-2 gap-6">
+                <div class="card">
+                    <div class="flex items-center gap-3 mb-4">
+                        <span class="text-3xl">🔌</span>
+                        <h3 class="text-3xl font-bold text-dark">Transport 类</h3>
+                    </div>
+                    <p class="text-lg text-gray-600 mb-4">底层 SSH 传输通道，SSHClient 的底层实现（教材第129页）</p>
+
+                    <div class="code-block mb-4">
+                        <span class="code-keyword">import</span> paramiko<br><br>
+                        <span class="code-comment"># 创建Transport</span><br>
+                        tran = paramiko.Transport((<span class="code-string">'192.168.1.1'</span>, <span class="code-number">22</span>))<br><br>
+                        <span class="code-comment"># 连接认证</span><br>
+                        tran.connect(<br>
+                        &nbsp;&nbsp;username=<span class="code-string">'admin'</span>,<br>
+                        &nbsp;&nbsp;password=<span class="code-string">'Huawei@123'</span><br>
+                        )<br><br>
+                        <span class="code-comment"># 创建SFTP</span><br>
+                        sftp = paramiko.SFTPClient.from_transport(tran)<br><br>
+                        <span class="code-comment"># 关闭</span><br>
+                        tran.close()
+                    </div>
+
+                    <div class="p-4 bg-pink rounded-lg">
+                        <p class="text-base text-gray-700">⚡ <strong>优势：</strong>更灵活的控制，可直接管理底层连接</p>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="flex items-center gap-3 mb-4">
+                        <span class="text-3xl">🔐</span>
+                        <h3 class="text-3xl font-bold text-dark">Key Handling</h3>
+                    </div>
+                    <p class="text-lg text-gray-600 mb-4">处理 RSA/DSA 私钥文件（教材第131页）</p>
+
+                    <div class="space-y-4">
+                        <div class="code-block">
+                            <span class="code-comment"># 从文件加载RSA私钥</span><br>
+                            pkey = paramiko.RSAKey.from_private_key_file(<br>
+                            &nbsp;&nbsp;<span class="code-string">'/path/to/id_rsa'</span><br>
+                            )<br><br>
+                            <span class="code-comment"># 使用私钥连接（无需密码）</span><br>
+                            client.connect(<br>
+                            &nbsp;&nbsp;hostname=<span class="code-string">'192.168.1.1'</span>,<br>
+                            &nbsp;&nbsp;username=<span class="code-string">'admin'</span>,<br>
+                            &nbsp;&nbsp;pkey=pkey<br>
+                            )
+                        </div>
+
+                        <div class="code-block">
+                            <span class="code-comment"># DSA密钥同样支持</span><br>
+                            pkey = paramiko.DSSKey.from_private_key_file(<br>
+                            &nbsp;&nbsp;<span class="code-string">'/path/to/id_dsa'</span><br>
+                            )
+                        </div>
+                    </div>
+
+                    <div class="mt-4 p-4 bg-light rounded-lg">
+                        <p class="text-base text-secondary">🎯 <strong>应用场景：</strong>免密登录、自动化运维、CI/CD流水线</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="slide-number">09 / 20</div>
+    </section>
+
+    <!-- 第10页：eNSP环境准备 -->
+    <section class="slide" data-index="9">
+        <div class="bg-pattern"></div>
+        <div class="slide-content">
+            <div class="mb-6">
+                <span class="badge bg-light text-primary mb-3">实战准备</span>
+                <h2 class="text-5xl font-black text-dark mb-2">eNSP 环境配置</h2>
+                <p class="text-xl text-gray-500">华为设备 SSH 服务开启步骤</p>
+            </div>
+
+            <div class="grid grid-cols-2 gap-6">
+                <div class="space-y-4">
+                    <div class="card border-l-4 border-primary">
+                        <div class="flex items-center gap-3 mb-3">
+                            <span class="badge bg-primary text-white">步骤1</span>
+                            <h3 class="text-xl font-bold text-dark">配置IP地址</h3>
+                        </div>
+                        <div class="code-block text-base">
+                            &lt;Huawei&gt; system-view<br>
+                            [Huawei] sysname SW-Core<br>
+                            [SW-Core] interface Vlanif 1<br>
+                            [SW-Core-Vlanif1] ip address 192.168.56.100 24
+                        </div>
+                    </div>
+
+                    <div class="card border-l-4 border-secondary">
+                        <div class="flex items-center gap-3 mb-3">
+                            <span class="badge bg-secondary text-white">步骤2</span>
+                            <h3 class="text-xl font-bold text-dark">开启SSH服务</h3>
+                        </div>
+                        <div class="code-block text-base">
+                            [SW-Core] stelnet server enable<br><br>
+                            [SW-Core] user-interface vty 0 4<br>
+                            [SW-Core-ui-vty0-4] authentication-mode aaa<br>
+                            [SW-Core-ui-vty0-4] protocol inbound ssh<br>
+                            [SW-Core-ui-vty0-4] user privilege level 3
+                        </div>
+                    </div>
+
+                    <div class="card border-l-4 border-accent">
+                        <div class="flex items-center gap-3 mb-3">
+                            <span class="badge bg-accent text-white">步骤3</span>
+                            <h3 class="text-xl font-bold text-dark">创建用户与密钥</h3>
+                        </div>
+                        <div class="code-block text-base">
+                            [SW-Core] aaa<br>
+                            [SW-Core-aaa] local-user admin password irreversible-cipher Huawei@123<br>
+                            [SW-Core-aaa] local-user admin service-type ssh<br>
+                            [SW-Core-aaa] local-user admin level 3<br><br>
+                            [SW-Core] rsa local-key-pair create<br>
+                            <span class="code-comment"># 输入密钥长度：2048</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card bg-gradient-to-br from-light to-white h-full">
+                    <h3 class="text-2xl font-bold text-dark mb-4">📋 配置检查清单</h3>
+                    <div class="space-y-3">
+                        <label class="flex items-center gap-3 p-3 bg-white rounded-lg border border-gray-100 cursor-pointer hover:bg-green-50 transition">
+                            <input type="checkbox" class="w-5 h-5 accent-primary">
+                            <span class="text-lg">设备IP可达（ping测试）</span>
+                        </label>
+                        <label class="flex items-center gap-3 p-3 bg-white rounded-lg border border-gray-100 cursor-pointer hover:bg-green-50 transition">
+                            <input type="checkbox" class="w-5 h-5 accent-primary">
+                            <span class="text-lg">stelnet server enable 已执行</span>
+                        </label>
+                        <label class="flex items-center gap-3 p-3 bg-white rounded-lg border border-gray-100 cursor-pointer hover:bg-green-50 transition">
+                            <input type="checkbox" class="w-5 h-5 accent-primary">
+                            <span class="text-lg">VTY接口protocol inbound ssh</span>
+                        </label>
+                        <label class="flex items-center gap-3 p-3 bg-white rounded-lg border border-gray-100 cursor-pointer hover:bg-green-50 transition">
+                            <input type="checkbox" class="w-5 h-5 accent-primary">
+                            <span class="text-lg">AAA用户service-type ssh</span>
+                        </label>
+                        <label class="flex items-center gap-3 p-3 bg-white rounded-lg border border-gray-100 cursor-pointer hover:bg-green-50 transition">
+                            <input type="checkbox" class="w-5 h-5 accent-primary">
+                            <span class="text-lg">RSA密钥对已生成</span>
+                        </label>
+                        <label class="flex items-center gap-3 p-3 bg-white rounded-lg border border-gray-100 cursor-pointer hover:bg-green-50 transition">
+                            <input type="checkbox" class="w-5 h-5 accent-primary">
+                            <span class="text-lg">配置已save保存</span>
+                        </label>
+                    </div>
+                    <div class="mt-4 p-4 bg-primary/10 rounded-lg border border-primary/20">
+                        <p class="text-lg text-secondary font-medium">🔔 关键：user privilege level 3 确保有足够权限执行巡检命令</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="slide-number">10 / 20</div>
+    </section>
+
+    <!-- 第11页：密码认证连接 -->
+    <section class="slide" data-index="10">
+        <div class="bg-pattern"></div>
+        <div class="slide-content">
+            <div class="mb-4">
+                <span class="badge bg-light text-primary mb-3">实战代码</span>
+                <h2 class="text-5xl font-black text-dark mb-2">密码认证连接示例</h2>
+                <p class="text-xl text-gray-500">最基础的 Paramiko 连接方式</p>
+            </div>
+
+            <div class="grid grid-cols-5 gap-6">
+                <div class="col-span-3">
+                    <div class="code-block text-base leading-relaxed">
+                        <span class="code-keyword">import</span> paramiko<br>
+                        <span class="code-keyword">import</span> time<br><br>
+                        <span class="code-comment"># 1. 创建客户端实例</span><br>
+                        client = paramiko.SSHClient()<br><br>
+                        <span class="code-comment"># 2. 设置自动添加未知主机密钥</span><br>
+                        client.set_missing_host_key_policy(<br>
+                        &nbsp;&nbsp;paramiko.AutoAddPolicy()<br>
+                        )<br><br>
+                        <span class="code-comment"># 3. 建立连接</span><br>
+                        client.connect(<br>
+                        &nbsp;&nbsp;hostname=<span class="code-string">'192.168.56.100'</span>,<br>
+                        &nbsp;&nbsp;port=<span class="code-number">22</span>,<br>
+                        &nbsp;&nbsp;username=<span class="code-string">'admin'</span>,<br>
+                        &nbsp;&nbsp;password=<span class="code-string">'Huawei@123'</span>,<br>
+                        &nbsp;&nbsp;allow_agent=<span class="code-keyword">False</span>,<br>
+                        &nbsp;&nbsp;look_for_keys=<span class="code-keyword">False</span><br>
+                        )<br><br>
+                        <span class="code-comment"># 4. 执行命令</span><br>
+                        stdin, stdout, stderr = client.exec_command(<br>
+                        &nbsp;&nbsp;<span class="code-string">'display version'</span><br>
+                        )<br>
+                        output = stdout.read().decode(<span class="code-string">'utf-8'</span>)<br>
+                        <span class="code-function">print</span>(output)<br><br>
+                        <span class="code-comment"># 5. 关闭连接（必须！）</span><br>
+                        client.close()
+                    </div>
+                </div>
+
+                <div class="col-span-2 space-y-4">
+                    <div class="card">
+                        <h3 class="text-xl font-bold text-dark mb-3">🔍 代码解析</h3>
+                        <div class="space-y-3 text-base">
+                            <div class="p-3 bg-light rounded-lg">
+                                <p class="font-bold text-primary mb-1">SSHClient()</p>
+                                <p class="text-gray-600">创建会话对象</p>
+                            </div>
+                            <div class="p-3 bg-light rounded-lg">
+                                <p class="font-bold text-primary mb-1">AutoAddPolicy()</p>
+                                <p class="text-gray-600">免交互确认新主机</p>
+                            </div>
+                            <div class="p-3 bg-light rounded-lg">
+                                <p class="font-bold text-primary mb-1">allow_agent=False</p>
+                                <p class="text-gray-600">禁用ssh-agent干扰</p>
+                            </div>
+                            <div class="p-3 bg-light rounded-lg">
+                                <p class="font-bold text-primary mb-1">look_for_keys=False</p>
+                                <p class="text-gray-600">不搜索本地私钥</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card bg-pink">
+                        <h3 class="text-xl font-bold text-dark mb-2">⚠️ 异常处理</h3>
+                        <div class="space-y-2 text-base text-gray-700">
+                            <p>• AuthenticationException → 用户名/密码错误</p>
+                            <p>• SSHException → SSH协议错误</p>
+                            <p>• socket.timeout → 网络不可达</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="slide-number">11 / 20</div>
+    </section>
+
+    <!-- 第12页：交互式Shell -->
+    <section class="slide" data-index="11">
+        <div class="bg-pattern"></div>
+        <div class="slide-content">
+            <div class="mb-4">
+                <span class="badge bg-light text-primary mb-3">高级用法</span>
+                <h2 class="text-5xl font-black text-dark mb-2">交互式 Shell</h2>
+                <p class="text-xl text-gray-500">invoke_shell() · 处理分页与长输出</p>
+            </div>
+
+            <div class="grid grid-cols-2 gap-6">
+                <div class="card">
+                    <h3 class="text-2xl font-bold text-dark mb-3">🎯 核心问题</h3>
+                    <div class="p-4 bg-red-50 rounded-lg border border-red-100 mb-4">
+                        <p class="text-lg text-accent font-bold mb-2">--More-- 分页陷阱</p>
+                        <p class="text-base text-gray-700">华为设备默认分页显示，exec_command() 只能获取第一页内容！</p>
+                    </div>
+                    <h3 class="text-2xl font-bold text-dark mb-3">✅ 解决方案</h3>
+                    <div class="code-block">
+                        <span class="code-comment"># 关键：设置不分页</span><br>
+                        channel.send(<span class="code-string">"screen-length 0 temporary
+"</span>)<br><br>
+                        <span class="code-comment"># 启动交互式shell</span><br>
+                        channel = client.invoke_shell()<br><br>
+                        <span class="code-comment"># 发送命令</span><br>
+                        channel.send(<span class="code-string">"display current-configuration
+"</span>)<br><br>
+                        <span class="code-comment"># 循环读取输出</span><br>
+                        output = <span class="code-string">""</span><br>
+                        <span class="code-keyword">while</span> channel.recv_ready():<br>
+                        &nbsp;&nbsp;output += channel.recv(<span class="code-number">65535</span>).decode()
+                    </div>
+                </div>
+
+                <div class="space-y-4">
+                    <div class="card">
+                        <h3 class="text-2xl font-bold text-dark mb-3">📊 exec_command vs invoke_shell</h3>
+                        <div class="overflow-hidden rounded-lg border border-primary/20">
+                            <table class="w-full text-base">
+                                <thead class="bg-primary text-white">
+                                    <tr><th class="px-3 py-2">特性</th><th class="px-3 py-2">exec_command</th><th class="px-3 py-2">invoke_shell</th></tr>
+                                </thead>
+                                <tbody class="divide-y divide-primary/10">
+                                    <tr class="table-row bg-white"><td class="px-3 py-2">适用场景</td><td class="px-3 py-2">短命令</td><td class="px-3 py-2 text-primary font-bold">长输出/交互</td></tr>
+                                    <tr class="table-row bg-light/50"><td class="px-3 py-2">分页处理</td><td class="px-3 py-2">❌ 困难</td><td class="px-3 py-2 text-primary font-bold">✅ 容易</td></tr>
+                                    <tr class="table-row bg-white"><td class="px-3 py-2">返回类型</td><td class="px-3 py-2">三元组</td><td class="px-3 py-2">Channel对象</td></tr>
+                                    <tr class="table-row bg-light/50"><td class="px-3 py-2">复杂度</td><td class="px-3 py-2">简单</td><td class="px-3 py-2">较复杂</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="card bg-pink">
+                        <h3 class="text-xl font-bold text-dark mb-2">💡 最佳实践</h3>
+                        <ul class="space-y-2 text-lg text-gray-700">
+                            <li>• 巡检用 <code class="bg-white px-2 py-1 rounded text-primary font-bold">exec_command</code> + screen-length 0</li>
+                            <li>• 配置备份用 <code class="bg-white px-2 py-1 rounded text-primary font-bold">invoke_shell</code></li>
+                            <li>• 必须 <code class="bg-white px-2 py-1 rounded text-primary font-bold">time.sleep()</code> 等待设备响应</li>
+                            <li>• 生产环境封装异常处理与重试机制</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="slide-number">12 / 20</div>
+    </section>
+
+    <!-- 第13页：公钥认证 -->
+    <section class="slide" data-index="12">
+        <div class="bg-pattern"></div>
+        <div class="slide-content">
+            <div class="mb-6">
+                <span class="badge bg-light text-primary mb-3">安全认证</span>
+                <h2 class="text-5xl font-black text-dark mb-2">公钥认证方式</h2>
+                <p class="text-xl text-gray-500">免密登录 · 更高安全性</p>
+            </div>
+
+            <div class="grid grid-cols-2 gap-6">
+                <div class="space-y-4">
+                    <div class="card">
+                        <h3 class="text-2xl font-bold text-dark mb-3">🔑 本地生成密钥对</h3>
+                        <div class="code-block">
+                            <span class="code-comment"># Git Bash 或 Linux 终端</span><br>
+                            ssh-keygen -t rsa -b <span class="code-number">2048</span><br><br>
+                            <span class="code-comment"># 默认保存路径：</span><br>
+                            <span class="code-comment"># ~/.ssh/id_rsa（私钥）</span><br>
+                            <span class="code-comment"># ~/.ssh/id_rsa.pub（公钥）</span>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <h3 class="text-2xl font-bold text-dark mb-3">📤 设备端配置公钥</h3>
+                        <div class="code-block">
+                            [Huawei] rsa peer-public-key rsa01<br>
+                            [Huawei-rsa-public-key] public-key-code begin<br>
+                            [Huawei-rsa-public-key-rsa-key-code] ssh-rsa AAAA...<br>
+                            [Huawei-rsa-public-key-rsa-key-code] public-key-code end<br>
+                            [Huawei] ssh user admin assign rsa-key rsa01
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3 class="text-2xl font-bold text-dark mb-4">🐍 Python 代码实现</h3>
+                    <div class="code-block mb-4">
+                        <span class="code-keyword">import</span> paramiko<br><br>
+                        <span class="code-comment"># 加载私钥</span><br>
+                        private_key = paramiko.RSAKey.from_private_key_file(<br>
+                        &nbsp;&nbsp;<span class="code-string">'C:/Users/xxx/.ssh/id_rsa'</span><br>
+                        )<br><br>
+                        client = paramiko.SSHClient()<br>
+                        client.set_missing_host_key_policy(<br>
+                        &nbsp;&nbsp;paramiko.AutoAddPolicy()<br>
+                        )<br><br>
+                        <span class="code-comment"># 使用私钥连接（无需密码！）</span><br>
+                        client.connect(<br>
+                        &nbsp;&nbsp;hostname=<span class="code-string">'192.168.56.100'</span>,<br>
+                        &nbsp;&nbsp;username=<span class="code-string">'admin'</span>,<br>
+                        &nbsp;&nbsp;pkey=private_key,<br>
+                        &nbsp;&nbsp;allow_agent=<span class="code-keyword">False</span>,<br>
+                        &nbsp;&nbsp;look_for_keys=<span class="code-keyword">False</span><br>
+                        )
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="p-3 bg-green-50 rounded-lg text-center">
+                            <p class="text-2xl mb-1">🔒</p>
+                            <p class="text-base font-bold text-primary">更安全</p>
+                            <p class="text-sm text-gray-500">无密码泄露风险</p>
+                        </div>
+                        <div class="p-3 bg-green-50 rounded-lg text-center">
+                            <p class="text-2xl mb-1">⚡</p>
+                            <p class="text-base font-bold text-primary">更快捷</p>
+                            <p class="text-sm text-gray-500">无需输入密码</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="slide-number">13 / 20</div>
+    </section>
+
+    <!-- 第14页：SFTP传输 -->
+    <section class="slide" data-index="13">
+        <div class="bg-pattern"></div>
+        <div class="slide-content">
+            <div class="mb-4">
+                <span class="badge bg-light text-primary mb-3">文件传输</span>
+                <h2 class="text-5xl font-black text-dark mb-2">SFTP 文件传输</h2>
+                <p class="text-xl text-gray-500">配置备份与脚本下发</p>
+            </div>
+
+            <div class="grid grid-cols-5 gap-6">
+                <div class="col-span-3">
+                    <div class="code-block text-base leading-relaxed">
+                        <span class="code-keyword">import</span> paramiko<br><br>
+                        <span class="code-comment"># 1. 建立Transport连接</span><br>
+                        transport = paramiko.Transport((<span class="code-string">'192.168.56.100'</span>, <span class="code-number">22</span>))<br>
+                        transport.connect(<br>
+                        &nbsp;&nbsp;username=<span class="code-string">'admin'</span>,<br>
+                        &nbsp;&nbsp;password=<span class="code-string">'Huawei@123'</span><br>
+                        )<br><br>
+                        <span class="code-comment"># 2. 创建SFTP会话</span><br>
+                        sftp = paramiko.SFTPClient.from_transport(transport)<br><br>
+                        <span class="code-comment"># 3. 下载配置（备份）</span><br>
+                        sftp.<span class="code-function">get</span>(<br>
+                        &nbsp;&nbsp;<span class="code-string">'/vrpcfg.zip'</span>,<br>
+                        &nbsp;&nbsp;<span class="code-string">'D:/backup/SW-Core_config.zip'</span><br>
+                        )<br>
+                        <span class="code-function">print</span>(<span class="code-string">"配置备份成功！"</span>)<br><br>
+                        <span class="code-comment"># 4. 上传脚本</span><br>
+                        sftp.<span class="code-function">put</span>(<br>
+                        &nbsp;&nbsp;<span class="code-string">'D:/scripts/upgrade.txt'</span>,<br>
+                        &nbsp;&nbsp;<span class="code-string">'/flash:/upgrade.txt'</span><br>
+                        )<br><br>
+                        <span class="code-comment"># 5. 查看远程目录</span><br>
+                        <span class="code-keyword">for</span> f <span class="code-keyword">in</span> sftp.listdir(<span class="code-string">'/flash:'</span>):<br>
+                        &nbsp;&nbsp;<span class="code-function">print</span>(f<span class="code-string">"  {f}"</span>)<br><br>
+                        <span class="code-comment"># 6. 关闭</span><br>
+                        sftp.close()<br>
+                        transport.close()
+                    </div>
+                </div>
+
+                <div class="col-span-2 space-y-4">
+                    <div class="card">
+                        <h3 class="text-xl font-bold text-dark mb-3">📥 下载（get）</h3>
+                        <div class="p-3 bg-light rounded-lg">
+                            <p class="text-base text-gray-700">远程 → 本地</p>
+                            <p class="text-sm text-gray-500 mt-1">用于配置备份、日志采集</p>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <h3 class="text-xl font-bold text-dark mb-3">📤 上传（put）</h3>
+                        <div class="p-3 bg-light rounded-lg">
+                            <p class="text-base text-gray-700">本地 → 远程</p>
+                            <p class="text-sm text-gray-500 mt-1">用于脚本下发、固件升级</p>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <h3 class="text-xl font-bold text-dark mb-3">📂 目录操作</h3>
+                        <div class="space-y-1 text-base">
+                            <code class="text-primary">mkdir()</code> <span class="text-gray-600">创建目录</span><br>
+                            <code class="text-primary">remove()</code> <span class="text-gray-600">删除文件</span><br>
+                            <code class="text-primary">rename()</code> <span class="text-gray-600">重命名</span><br>
+                            <code class="text-primary">stat()</code> <span class="text-gray-600">查看状态</span>
+                        </div>
+                    </div>
+                    <div class="card bg-pink">
+                        <p class="text-base text-gray-700">💡 华为设备配置默认路径：<code class="bg-white px-2 rounded">/vrpcfg.zip</code></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="slide-number">14 / 20</div>
+    </section>
+
+    <!-- 第15页：巡检需求分析 -->
+    <section class="slide" data-index="14">
+        <div class="bg-pattern"></div>
+        <div class="slide-content">
+            <div class="mb-6">
+                <span class="badge bg-light text-primary mb-3">系统设计</span>
+                <h2 class="text-5xl font-black text-dark mb-2">巡检需求分析</h2>
+                <p class="text-xl text-gray-500">教材第3.3节 · 深圳总部园区网络巡检</p>
+            </div>
+
+            <div class="card mb-6">
+                <div class="overflow-hidden rounded-lg">
+                    <table class="w-full text-lg">
+                        <thead class="bg-primary text-white">
+                            <tr>
+                                <th class="px-4 py-3 text-left">巡检项</th>
+                                <th class="px-4 py-3 text-left">对应命令</th>
+                                <th class="px-4 py-3 text-left">关键信息</th>
+                                <th class="px-4 py-3 text-left">异常阈值</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-primary/10">
+                            <tr class="table-row bg-white">
+                                <td class="px-4 py-3 font-bold">版本信息</td>
+                                <td class="px-4 py-3 font-mono text-primary">display version</td>
+                                <td class="px-4 py-3">软件版本、运行时间</td>
+                                <td class="px-4 py-3 text-gray-400">—</td>
+                            </tr>
+                            <tr class="table-row bg-light/50">
+                                <td class="px-4 py-3 font-bold">补丁信息</td>
+                                <td class="px-4 py-3 font-mono text-primary">display patch-information</td>
+                                <td class="px-4 py-3">补丁状态</td>
+                                <td class="px-4 py-3 text-gray-400">—</td>
+                            </tr>
+                            <tr class="table-row bg-white">
+                                <td class="px-4 py-3 font-bold">时钟信息</td>
+                                <td class="px-4 py-3 font-mono text-primary">display clock</td>
+                                <td class="px-4 py-3">时间同步状态</td>
+                                <td class="px-4 py-3 text-gray-400">偏差>1min</td>
+                            </tr>
+                            <tr class="table-row bg-light/50">
+                                <td class="px-4 py-3 font-bold">板卡状态</td>
+                                <td class="px-4 py-3 font-mono text-primary">display device</td>
+                                <td class="px-4 py-3">各板卡是否正常</td>
+                                <td class="px-4 py-3"><span class="badge bg-red-100 text-accent">Abnormal</span></td>
+                            </tr>
+                            <tr class="table-row bg-white">
+                                <td class="px-4 py-3 font-bold">CPU使用率</td>
+                                <td class="px-4 py-3 font-mono text-primary">display cpu-usage</td>
+                                <td class="px-4 py-3">是否超过阈值</td>
+                                <td class="px-4 py-3"><span class="badge bg-red-100 text-accent">> 80%</span></td>
+                            </tr>
+                            <tr class="table-row bg-light/50">
+                                <td class="px-4 py-3 font-bold">内存使用率</td>
+                                <td class="px-4 py-3 font-mono text-primary">display memory-usage</td>
+                                <td class="px-4 py-3">是否超过阈值</td>
+                                <td class="px-4 py-3"><span class="badge bg-red-100 text-accent">> 90%</span></td>
+                            </tr>
+                            <tr class="table-row bg-white">
+                                <td class="px-4 py-3 font-bold">日志信息</td>
+                                <td class="px-4 py-3 font-mono text-primary">display logbuffer</td>
+                                <td class="px-4 py-3">异常告警</td>
+                                <td class="px-4 py-3"><span class="badge bg-red-100 text-accent">Error/Drop</span></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-3 gap-4">
+                <div class="card text-center p-4">
+                    <p class="text-3xl mb-2">🎯</p>
+                    <p class="text-xl font-bold text-dark">版本与补丁</p>
+                    <p class="text-base text-gray-500">确保软件最新无漏洞</p>
+                </div>
+                <div class="card text-center p-4">
+                    <p class="text-3xl mb-2">📊</p>
+                    <p class="text-xl font-bold text-dark">性能监控</p>
+                    <p class="text-base text-gray-500">CPU/内存实时阈值</p>
+                </div>
+                <div class="card text-center p-4">
+                    <p class="text-3xl mb-2">🔔</p>
+                    <p class="text-xl font-bold text-dark">告警分析</p>
+                    <p class="text-base text-gray-500">日志异常及时发现</p>
+                </div>
+            </div>
+        </div>
+        <div class="slide-number">15 / 20</div>
+    </section>
+
+    <!-- 第16页：完整巡检系统 -->
+    <section class="slide" data-index="15">
+        <div class="bg-pattern"></div>
+        <div class="slide-content">
+            <div class="mb-4">
+                <span class="badge bg-light text-primary mb-3">综合实战</span>
+                <h2 class="text-5xl font-black text-dark mb-2">自动化巡检系统</h2>
+                <p class="text-xl text-gray-500">NetworkInspector 类设计 · OOP封装</p>
+            </div>
+
+            <div class="grid grid-cols-2 gap-6">
+                <div class="code-block text-base leading-relaxed">
+                    <span class="code-keyword">class</span> <span class="code-function">NetworkInspector</span>:<br>
+                    &nbsp;&nbsp;<span class="code-string">"""网络设备巡检器"""</span><br><br>
+                    &nbsp;&nbsp;<span class="code-keyword">def</span> <span class="code-function">__init__</span>(self, device_info):<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;self.device = device_info<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;self.client = <span class="code-keyword">None</span><br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;self.results = {}<br><br>
+                    &nbsp;&nbsp;<span class="code-keyword">def</span> <span class="code-function">connect</span>(self):<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;self.client = paramiko.SSHClient()<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;self.client.set_missing_host_key_policy(<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;paramiko.AutoAddPolicy())<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;<span class="code-keyword">try</span>:<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;self.client.connect(...)<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="code-keyword">return</span> <span class="code-keyword">True</span><br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;<span class="code-keyword">except</span> Exception <span class="code-keyword">as</span> e:<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="code-function">print</span>(f<span class="code-string">"[失败] {e}"</span>)<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="code-keyword">return</span> <span class="code-keyword">False</span><br><br>
+                    &nbsp;&nbsp;<span class="code-keyword">def</span> <span class="code-function">run_command</span>(self, cmd):<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;stdin, stdout, stderr = \<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;self.client.exec_command(cmd)<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;<span class="code-keyword">return</span> stdout.read().decode()<br><br>
+                    &nbsp;&nbsp;<span class="code-keyword">def</span> <span class="code-function">inspect</span>(self):<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;items = {<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="code-string">"version"</span>: <span class="code-string">"display version"</span>,<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="code-string">"cpu"</span>: <span class="code-string">"display cpu-usage"</span>,<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="code-string">"memory"</span>: <span class="code-string">"display memory-usage"</span>,<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="code-string">"device"</span>: <span class="code-string">"display device"</span>,<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="code-string">"clock"</span>: <span class="code-string">"display clock"</span>,<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="code-string">"log"</span>: <span class="code-string">"display logbuffer"</span><br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;}<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;<span class="code-keyword">for</span> name, cmd <span class="code-keyword">in</span> items.items():<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;self.results[name] = self.run_command(cmd)
+                </div>
+
+                <div class="space-y-4">
+                    <div class="card">
+                        <h3 class="text-2xl font-bold text-dark mb-3">🎯 设计亮点</h3>
+                        <div class="space-y-3">
+                            <div class="flex items-start gap-3">
+                                <div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold shrink-0">1</div>
+                                <div>
+                                    <p class="text-lg font-bold text-dark">面向对象封装</p>
+                                    <p class="text-base text-gray-600">设备信息、连接、结果一体化管理</p>
+                                </div>
+                            </div>
+                            <div class="flex items-start gap-3">
+                                <div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold shrink-0">2</div>
+                                <div>
+                                    <p class="text-lg font-bold text-dark">异常处理完善</p>
+                                    <p class="text-base text-gray-600">连接失败不中断，返回状态标识</p>
+                                </div>
+                            </div>
+                            <div class="flex items-start gap-3">
+                                <div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold shrink-0">3</div>
+                                <div>
+                                    <p class="text-lg font-bold text-dark">命令字典化</p>
+                                    <p class="text-base text-gray-600">巡检项与命令解耦，易扩展</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <h3 class="text-2xl font-bold text-dark mb-3">📤 报告输出</h3>
+                        <div class="code-block text-base">
+                            <span class="code-keyword">def</span> <span class="code-function">save_report</span>(self):<br>
+                            &nbsp;&nbsp;<span class="code-comment"># JSON结构化数据</span><br>
+                            &nbsp;&nbsp;json.dump(data, f)<br><br>
+                            &nbsp;&nbsp;<span class="code-comment"># TXT人可读报告</span><br>
+                            &nbsp;&nbsp;f.write(<span class="code-string">"巡检报告
+"</span>)<br>
+                            &nbsp;&nbsp;f.write(<span class="code-string">"="</span>*<span class="code-number">60</span>)
+                        </div>
+                    </div>
+
+                    <div class="card bg-pink">
+                        <p class="text-lg text-gray-700">📚 <strong>教材对应：</strong>第3.3节任务实施，完整实现网络设备自动化巡检</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="slide-number">16 / 20</div>
+    </section>
+
+    <!-- 第17页：批量巡检 -->
+    <section class="slide" data-index="16">
+        <div class="bg-pattern"></div>
+        <div class="slide-content">
+            <div class="mb-4">
+                <span class="badge bg-light text-primary mb-3">扩展功能</span>
+                <h2 class="text-5xl font-black text-dark mb-2">批量巡检多台设备</h2>
+                <p class="text-xl text-gray-500">循环遍历 · 异常隔离 · 汇总报告</p>
+            </div>
+
+            <div class="grid grid-cols-5 gap-6">
+                <div class="col-span-3">
+                    <div class="code-block text-base leading-relaxed">
+                        <span class="code-keyword">def</span> <span class="code-function">batch_inspect</span>(devices_list):<br>
+                        &nbsp;&nbsp;all_results = []<br><br>
+                        &nbsp;&nbsp;<span class="code-keyword">for</span> device <span class="code-keyword">in</span> devices_list:<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;inspector = NetworkInspector(device)<br><br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;<span class="code-keyword">try</span>:<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;results = inspector.inspect()<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="code-keyword">if</span> results:<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;inspector.save_report()<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;all_results.append({<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="code-string">"device"</span>: device[<span class="code-string">"name"</span>],<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="code-string">"status"</span>: <span class="code-string">"success"</span><br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;})<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;<span class="code-keyword">except</span> Exception <span class="code-keyword">as</span> e:<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;all_results.append({<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="code-string">"device"</span>: device[<span class="code-string">"name"</span>],<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="code-string">"status"</span>: <span class="code-string">"failed"</span>,<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="code-string">"error"</span>: <span class="code-function">str</span>(e)<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;})<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;<span class="code-keyword">finally</span>:<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;inspector.disconnect()<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;time.sleep(<span class="code-number">2</span>)&nbsp;<span class="code-comment"># 间隔</span><br><br>
+                        &nbsp;&nbsp;<span class="code-comment"># 汇总输出</span><br>
+                        &nbsp;&nbsp;success = sum(<span class="code-number">1</span> <span class="code-keyword">for</span> r <span class="code-keyword">in</span> all_results<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="code-keyword">if</span> r[<span class="code-string">"status"</span>] == <span class="code-string">"success"</span>)<br>
+                        &nbsp;&nbsp;<span class="code-function">print</span>(f<span class="code-string">"成功: {success}/{len(all_results)}"</span>)
+                    </div>
+                </div>
+
+                <div class="col-span-2 space-y-4">
+                    <div class="card">
+                        <h3 class="text-xl font-bold text-dark mb-3">📋 设备清单配置</h3>
+                        <div class="code-block text-base">
+                            devices = [<br>
+                            &nbsp;&nbsp;{<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;<span class="code-string">"name"</span>: <span class="code-string">"SW-Core"</span>,<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;<span class="code-string">"host"</span>: <span class="code-string">"192.168.56.100"</span>,<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;<span class="code-string">"username"</span>: <span class="code-string">"admin"</span>,<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;<span class="code-string">"password"</span>: <span class="code-string">"Huawei@123"</span><br>
+                            &nbsp;&nbsp;},<br>
+                            &nbsp;&nbsp;{<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;<span class="code-string">"name"</span>: <span class="code-string">"R-Edge"</span>,<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;<span class="code-string">"host"</span>: <span class="code-string">"192.168.56.101"</span>,<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;<span class="code-string">"username"</span>: <span class="code-string">"admin"</span>,<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;<span class="code-string">"password"</span>: <span class="code-string">"Huawei@123"</span><br>
+                            &nbsp;&nbsp;}<br>
+                            ]
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <h3 class="text-xl font-bold text-dark mb-3">🚀 扩展方向</h3>
+                        <div class="space-y-2">
+                            <div class="flex items-center gap-2 p-2 bg-light rounded">
+                                <span class="text-primary">▸</span>
+                                <span class="text-base">多线程并发巡检</span>
+                            </div>
+                            <div class="flex items-center gap-2 p-2 bg-light rounded">
+                                <span class="text-primary">▸</span>
+                                <span class="text-base">CPU/内存阈值告警</span>
+                            </div>
+                            <div class="flex items-center gap-2 p-2 bg-light rounded">
+                                <span class="text-primary">▸</span>
+                                <span class="text-base">邮件自动通知</span>
+                            </div>
+                            <div class="flex items-center gap-2 p-2 bg-light rounded">
+                                <span class="text-primary">▸</span>
+                                <span class="text-base">SQLite历史数据存储</span>
+                            </div>
+                            <div class="flex items-center gap-2 p-2 bg-light rounded">
+                                <span class="text-primary">▸</span>
+                                <span class="text-base">Flask Web可视化</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="slide-number">17 / 20</div>
+    </section>
+
+    <!-- 第18页：Vibe Coding -->
+    <section class="slide" data-index="17">
+        <div class="bg-pattern"></div>
+        <div class="slide-content">
+            <div class="mb-4">
+                <span class="badge bg-purple-100 text-purple-600 mb-3">🤖 AI辅助编程</span>
+                <h2 class="text-5xl font-black text-dark mb-2">Vibe Coding 实战</h2>
+                <p class="text-xl text-gray-500">用自然语言生成 Paramiko 巡检代码</p>
+            </div>
+
+            <div class="grid grid-cols-2 gap-6">
+                <div class="space-y-4">
+                    <div class="card border-2 border-purple-200 vibe-glow">
+                        <div class="flex items-center gap-3 mb-3">
+                            <span class="text-3xl">💬</span>
+                            <h3 class="text-2xl font-bold text-purple-700">自然语言需求</h3>
+                        </div>
+                        <div class="p-4 bg-purple-50 rounded-lg border border-purple-100">
+                            <p class="text-lg text-gray-700 leading-relaxed font-medium">"帮我写一个 Python 脚本，使用 Paramiko 连接华为交换机 192.168.56.100，执行 display cpu-usage 和 display memory-usage，把结果保存到以当前日期命名的 txt 文件里，如果 CPU 超过 80% 就打印告警。要有异常处理。"</p>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="flex items-center gap-3 mb-3">
+                            <span class="text-3xl">⚡</span>
+                            <h3 class="text-2xl font-bold text-dark">AI 生成代码（示意）</h3>
+                        </div>
+                        <div class="code-block text-base">
+                            <span class="code-keyword">import</span> paramiko, datetime<br><br>
+                            <span class="code-keyword">def</span> <span class="code-function">check_device</span>(host, user, pwd):<br>
+                            &nbsp;&nbsp;client = paramiko.SSHClient()<br>
+                            &nbsp;&nbsp;client.set_missing_host_key_policy(<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;paramiko.AutoAddPolicy())<br>
+                            &nbsp;&nbsp;<span class="code-keyword">try</span>:<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;client.connect(host, ...)<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;_, out, _ = client.exec_command(<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="code-string">'display cpu-usage'</span>)<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;cpu = out.read().decode()<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;<span class="code-keyword">if</span> <span class="code-string">'80%'</span> <span class="code-keyword">in</span> cpu:<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="code-function">print</span>(<span class="code-string">'⚠️ CPU告警!'</span>)<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;...<br>
+                            &nbsp;&nbsp;<span class="code-keyword">finally</span>:<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;client.close()
+                        </div>
+                    </div>
+                </div>
+
+                <div class="space-y-4">
+                    <div class="card bg-gradient-to-br from-purple-50 to-white border-purple-200">
+                        <h3 class="text-2xl font-bold text-dark mb-4">🎯 Vibe Coding 理念</h3>
+                        <div class="space-y-3">
+                            <div class="flex items-start gap-3">
+                                <div class="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center text-xl shrink-0">1</div>
+                                <div>
+                                    <p class="text-lg font-bold text-dark">描述需求，而非编写代码</p>
+                                    <p class="text-base text-gray-600">用自然语言描述业务逻辑，AI生成骨架代码</p>
+                                </div>
+                            </div>
+                            <div class="flex items-start gap-3">
+                                <div class="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center text-xl shrink-0">2</div>
+                                <div>
+                                    <p class="text-lg font-bold text-dark">人机协作，迭代优化</p>
+                                    <p class="text-base text-gray-600">AI生成 → 人工审查 → 补充细节 → 再次优化</p>
+                                </div>
+                            </div>
+                            <div class="flex items-start gap-3">
+                                <div class="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center text-xl shrink-0">3</div>
+                                <div>
+                                    <p class="text-lg font-bold text-dark">理解原理，验证结果</p>
+                                    <p class="text-base text-gray-600">AI辅助不等于放弃思考，必须理解代码逻辑</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <h3 class="text-xl font-bold text-dark mb-3">⚠️ 使用原则</h3>
+                        <div class="space-y-2">
+                            <div class="p-3 bg-red-50 rounded-lg border border-red-100">
+                                <p class="text-base text-accent font-bold">❌ 不要完全依赖AI</p>
+                                <p class="text-sm text-gray-600">设备命令语法、异常场景需人工确认</p>
+                            </div>
+                            <div class="p-3 bg-yellow-50 rounded-lg border border-yellow-100">
+                                <p class="text-base text-yellow-700 font-bold">⚠️ 必须验证安全性</p>
+                                <p class="text-sm text-gray-600">检查硬编码密码、密钥暴露风险</p>
+                            </div>
+                            <div class="p-3 bg-green-50 rounded-lg border border-green-100">
+                                <p class="text-base text-green-700 font-bold">✅ 善用AI加速重复工作</p>
+                                <p class="text-sm text-gray-600">模板生成、注释完善、格式调整</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card bg-purple-100 border-purple-200">
+                        <p class="text-lg text-purple-800 text-center font-medium">🚀 推荐工具：Claude Code、GitHub Copilot、ChatGPT、Kimi</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="slide-number">18 / 20</div>
+    </section>
+
+    <!-- 第19页：实验设计 -->
+    <section class="slide" data-index="18">
+        <div class="bg-pattern"></div>
+        <div class="slide-content">
+            <div class="mb-6">
+                <span class="badge bg-light text-primary mb-3">实践环节</span>
+                <h2 class="text-5xl font-black text-dark mb-2">实验设计</h2>
+                <p class="text-xl text-gray-500">从基础连接到综合系统，循序渐进</p>
+            </div>
+
+            <div class="grid grid-cols-2 gap-6">
+                <div class="card border-l-4 border-primary">
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="text-2xl font-bold text-dark">实验一：基础连接</h3>
+                        <span class="badge bg-primary text-white">必做</span>
+                    </div>
+                    <p class="text-lg text-gray-600 mb-3">掌握密码认证连接，执行 display version</p>
+                    <div class="code-block text-base">
+                        client.connect(hostname=<span class="code-string">"192.168.56.100"</span>, ...)<br>
+                        stdin, stdout, stderr = \<br>
+                        &nbsp;&nbsp;client.exec_command(<span class="code-string">"display version"</span>)<br>
+                        <span class="code-function">print</span>(stdout.read().decode())
+                    </div>
+                    <p class="text-sm text-gray-500 mt-2">✅ 验证：能识别 VRP 版本号</p>
+                </div>
+
+                <div class="card border-l-4 border-secondary">
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="text-2xl font-bold text-dark">实验二：交互式Shell</h3>
+                        <span class="badge bg-secondary text-white">必做</span>
+                    </div>
+                    <p class="text-lg text-gray-600 mb-3">掌握 invoke_shell，处理分页显示</p>
+                    <div class="code-block text-base">
+                        channel = client.invoke_shell()<br>
+                        channel.send(<span class="code-string">"screen-length 0 temporary
+"</span>)<br>
+                        channel.send(<span class="code-string">"display current-configuration
+"</span>)
+                    </div>
+                    <p class="text-sm text-gray-500 mt-2">❓ 思考：不设置 screen-length 会怎样？</p>
+                </div>
+
+                <div class="card border-l-4 border-accent">
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="text-2xl font-bold text-dark">实验三：SFTP传输</h3>
+                        <span class="badge bg-accent text-white">必做</span>
+                    </div>
+                    <p class="text-lg text-gray-600 mb-3">配置备份和脚本上传</p>
+                    <div class="code-block text-base">
+                        transport = paramiko.Transport((host, <span class="code-number">22</span>))<br>
+                        sftp = paramiko.SFTPClient.from_transport(transport)<br>
+                        sftp.get(<span class="code-string">"/vrpcfg.zip"</span>, <span class="code-string">"./backup.zip"</span>)
+                    </div>
+                    <p class="text-sm text-gray-500 mt-2">✅ 验证：本地 backup 目录出现配置文件</p>
+                </div>
+
+                <div class="card border-l-4 border-purple-500">
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="text-2xl font-bold text-dark">实验四：综合系统</h3>
+                        <span class="badge bg-purple-500 text-white">选做+加分</span>
+                    </div>
+                    <p class="text-lg text-gray-600 mb-3">多线程、告警阈值、邮件通知、数据库存储</p>
+                    <div class="grid grid-cols-2 gap-2 text-sm">
+                        <div class="p-2 bg-purple-50 rounded text-center">threading并发</div>
+                        <div class="p-2 bg-purple-50 rounded text-center">CPU>80%告警</div>
+                        <div class="p-2 bg-purple-50 rounded text-center">smtplib邮件</div>
+                        <div class="p-2 bg-purple-50 rounded text-center">sqlite3存储</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="slide-number">19 / 20</div>
+    </section>
+
+    <!-- 第20页：总结 -->
+    <section class="slide" data-index="19">
+        <div class="bg-pattern"></div>
+        <div class="floating-shape bg-primary" style="width: 500px; height: 500px; bottom: -200px; right: -100px;"></div>
+        <div class="floating-shape bg-pink-400" style="width: 400px; height: 400px; top: -150px; left: -100px; animation-delay: -8s;"></div>
+
+        <div class="slide-content text-center">
+            <div class="mb-8">
+                <span class="badge bg-light text-primary mb-4">SUMMARY</span>
+                <h2 class="text-6xl font-black text-dark mb-4">课程总结</h2>
+            </div>
+
+            <div class="grid grid-cols-3 gap-6 mb-10 max-w-5xl mx-auto">
+                <div class="card p-6">
+                    <div class="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center text-3xl mx-auto mb-4">🔐</div>
+                    <h3 class="text-2xl font-bold text-dark mb-2">Paramiko基础</h3>
+                    <p class="text-lg text-gray-600">SSHv2协议、安装配置、组件架构</p>
+                </div>
+                <div class="card p-6">
+                    <div class="w-16 h-16 rounded-2xl bg-secondary/10 flex items-center justify-center text-3xl mx-auto mb-4">🐍</div>
+                    <h3 class="text-2xl font-bold text-dark mb-2">核心API</h3>
+                    <p class="text-lg text-gray-600">SSHClient、SFTP、Transport、密钥管理</p>
+                </div>
+                <div class="card p-6">
+                    <div class="w-16 h-16 rounded-2xl bg-accent/10 flex items-center justify-center text-3xl mx-auto mb-4">🤖</div>
+                    <h3 class="text-2xl font-bold text-dark mb-2">Vibe Coding</h3>
+                    <p class="text-lg text-gray-600">AI辅助编程、自然语言生成、人机协作</p>
+                </div>
+            </div>
+
+            <div class="max-w-3xl mx-auto space-y-4 mb-10">
+                <div class="card bg-gradient-to-r from-light to-white border-primary/20">
+                    <p class="text-xl text-gray-700 leading-relaxed">"网络自动化运维的核心不是替代人工，而是<strong class="text-primary">将重复性工作交给代码</strong>，让工程师专注于<strong class="text-primary">架构设计与异常分析</strong>。"</p>
+                </div>
+            </div>
+
+            <div class="flex justify-center gap-4">
+                <div class="card flex items-center gap-3 px-6 py-3">
+                    <span class="text-2xl">📚</span>
+                    <span class="text-lg font-medium">教材第129-140页</span>
+                </div>
+                <div class="card flex items-center gap-3 px-6 py-3">
+                    <span class="text-2xl">💻</span>
+                    <span class="text-lg font-medium">4个实验循序渐进</span>
+                </div>
+                <div class="card flex items-center gap-3 px-6 py-3">
+                    <span class="text-2xl">🚀</span>
+                    <span class="text-lg font-medium">AI赋能开发效率</span>
+                </div>
+            </div>
+
+            <div class="mt-8">
+                <p class="text-2xl font-bold gradient-text">Q & A</p>
+                <p class="text-lg text-gray-400 mt-2">感谢聆听 · 青岛幼儿师范高等专科学校</p>
+            </div>
+        </div>
+        <div class="slide-number">20 / 20</div>
+    </section>
+
+    <script>
+        (function() {
+            const slides = document.querySelectorAll('.slide');
+            const totalSlides = slides.length;
+            let currentSlide = 0;
+            let isScrolling = false;
+            let scrollTimeout;
+
+            // 初始化导航圆点
+            const navDotsContainer = document.getElementById('navDots');
+            slides.forEach((_, index) => {
+                const dot = document.createElement('div');
+                dot.className = 'nav-dot' + (index === 0 ? ' active' : '');
+                dot.addEventListener('click', () => goToSlide(index));
+                navDotsContainer.appendChild(dot);
+            });
+
+            const dots = document.querySelectorAll('.nav-dot');
+            const progressBar = document.getElementById('progressBar');
+
+            function updateSlides() {
+                slides.forEach((slide, index) => {
+                    slide.classList.toggle('active', index === currentSlide);
+                });
+                dots.forEach((dot, index) => {
+                    dot.classList.toggle('active', index === currentSlide);
+                });
+                progressBar.style.width = ((currentSlide + 1) / totalSlides * 100) + '%';
+            }
+
+            function goToSlide(index) {
+                if (index < 0 || index >= totalSlides) return;
+                currentSlide = index;
+                slides[index].scrollIntoView({ behavior: 'smooth' });
+                updateSlides();
+            }
+
+            function nextSlide() {
+                if (currentSlide < totalSlides - 1) goToSlide(currentSlide + 1);
+            }
+
+            function prevSlide() {
+                if (currentSlide > 0) goToSlide(currentSlide - 1);
+            }
+
+            // 滚轮事件
+            window.addEventListener('wheel', (e) => {
+                if (isScrolling) return;
+                clearTimeout(scrollTimeout);
+                scrollTimeout = setTimeout(() => {
+                    isScrolling = false;
+                }, 800);
+                isScrolling = true;
+
+                if (e.deltaY > 30) nextSlide();
+                else if (e.deltaY < -30) prevSlide();
+            }, { passive: true });
+
+            // 键盘事件
+            window.addEventListener('keydown', (e) => {
+                if (e.key === 'ArrowDown' || e.key === 'ArrowRight' || e.key === ' ') {
+                    e.preventDefault();
+                    nextSlide();
+                } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
+                    e.preventDefault();
+                    prevSlide();
+                } else if (e.key === 'Home') {
+                    e.preventDefault();
+                    goToSlide(0);
+                } else if (e.key === 'End') {
+                    e.preventDefault();
+                    goToSlide(totalSlides - 1);
+                }
+            });
+
+            // 触摸滑动
+            let touchStartY = 0;
+            window.addEventListener('touchstart', (e) => {
+                touchStartY = e.touches[0].clientY;
+            }, { passive: true });
+
+            window.addEventListener('touchend', (e) => {
+                const touchEndY = e.changedTouches[0].clientY;
+                const diff = touchStartY - touchEndY;
+                if (Math.abs(diff) > 50) {
+                    if (diff > 0) nextSlide();
+                    else prevSlide();
+                }
+            }, { passive: true });
+
+            // 滚动监听更新当前页
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const index = parseInt(entry.target.dataset.index);
+                        currentSlide = index;
+                        updateSlides();
+                    }
+                });
+            }, { threshold: 0.5 });
+
+            slides.forEach(slide => observer.observe(slide));
+
+            // 初始化
+            updateSlides();
+        })();
+    </script>
+</body>
+</html>
