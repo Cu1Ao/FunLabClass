@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Linux 系统管理 | CU1AO</title>
+    <title>Linxu 系统管理 | CU1AO</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
     <script>
@@ -16,7 +16,9 @@
                     },
                     colors: {
                         'terminal-green': '#00FF41',
+                        'terminal-green-dim': 'rgba(0, 255, 65, 0.6)',
                         'terminal-dark': '#0D1117',
+                        'terminal-dark-light': '#161B22',
                         'terminal-border': '#30363D',
                     }
                 }
@@ -29,218 +31,399 @@
             background: #0D1117;
             font-family: 'Noto Sans SC', sans-serif;
             color: #E6EDF3;
-        }
-        .terminal-bg {
-            background: linear-gradient(180deg, #161B22 0%, #0D1117 100%);
-        }
-        .terminal-glow {
-            text-shadow: 0 0 10px #00FF41, 0 0 20px #00FF41, 0 0 30px #00FF41;
-        }
-        .cursor-blink {
-            animation: blink 1s step-end infinite;
-        }
-        @keyframes blink {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0; }
-        }
-        .typing-effect {
-            border-right: 2px solid #00FF41;
-            animation: blink 1s step-end infinite;
-        }
-        @keyframes scanline {
-            0% { transform: translateY(-100%); }
-            100% { transform: translateY(100vh); }
-        }
-        .scan-line::before {
-            content: '';
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 4px;
-            background: linear-gradient(180deg, transparent, #00FF41, transparent);
-            animation: scanline 4s linear infinite;
-            opacity: 0.3;
-            pointer-events: none;
-        }
-        .matrix-bg {
-            background-image: 
-                linear-gradient(rgba(0, 255, 65, 0.03) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(0, 255, 65, 0.03) 1px, transparent 1px);
-            background-size: 40px 40px;
+            overflow-x: hidden;
         }
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: #0D1117; }
         ::-webkit-scrollbar-thumb { background: #00FF41; border-radius: 3px; }
-        .code-block {
-            background: #161B22;
-            border: 1px solid #30363D;
-            border-radius: 8px;
-            padding: 1rem;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.875rem;
-            overflow-x: auto;
+        
+        .glow-text {
+            text-shadow: 0 0 10px #00FF41, 0 0 20px #00FF41, 0 0 40px #00FF41;
         }
-        .code-block .comment { color: #8B949E; }
-        .code-block .keyword { color: #FF7B72; }
-        .code-block .string { color: #A5D6FF; }
-        .code-block .command { color: #00FF41; }
+        
+        .glow-border {
+            box-shadow: 0 0 20px rgba(0, 255, 65, 0.3), inset 0 0 20px rgba(0, 255, 65, 0.05);
+        }
+        
+        .reveal {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: opacity 0.6s ease, transform 0.6s ease;
+        }
+        .reveal.active {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        
+        .reveal-delay-1 { transition-delay: 0.1s; }
+        .reveal-delay-2 { transition-delay: 0.2s; }
+        .reveal-delay-3 { transition-delay: 0.3s; }
+        .reveal-delay-4 { transition-delay: 0.4s; }
+        
+        .card-hover {
+            transition: all 0.3s ease;
+            border: 1px solid #30363D;
+        }
+        .card-hover:hover {
+            border-color: #00FF41;
+            box-shadow: 0 0 30px rgba(0, 255, 65, 0.4), 0 0 60px rgba(0, 255, 65, 0.2);
+            transform: translateY(-5px);
+        }
+        
+        @keyframes flow-line {
+            0% { stroke-dashoffset: 20; }
+            100% { stroke-dashoffset: 0; }
+        }
+        .flow-line {
+            stroke-dasharray: 10 10;
+            animation: flow-line 1s linear infinite;
+        }
+        
+        @keyframes pulse-node {
+            0%, 100% { filter: drop-shadow(0 0 5px rgba(0, 255, 65, 0.5)); }
+            50% { filter: drop-shadow(0 0 15px rgba(0, 255, 65, 0.8)); }
+        }
+        .pulse-node { animation: pulse-node 2s ease-in-out infinite; }
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+        .float-anim { animation: float 3s ease-in-out infinite; }
+        
+        #particleCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+        }
+        
+        .grid-bg {
+            background-image: 
+                linear-gradient(rgba(0, 255, 65, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 255, 65, 0.03) 1px, transparent 1px);
+            background-size: 50px 50px;
+        }
     </style>
 </head>
-<body class="scan-line">
-    <a href="../index.html" class="fixed top-6 left-6 z-50 flex items-center gap-2 px-4 py-2 bg-terminal-dark/80 border border-terminal-green/30 text-terminal-green font-mono text-sm hover:bg-terminal-green/10 hover:border-terminal-green/60 transition-all rounded">
-        <span class="text-terminal-green">$</span>
-        <span>cd ../</span>
-        <span class="cursor-blink">_</span>
+<body>
+    <a href="../index.html" class="fixed top-6 left-6 z-50 flex items-center gap-2 px-4 py-2 bg-terminal-dark/90 border border-terminal-green/30 text-terminal-green font-mono text-sm hover:bg-terminal-green/10 hover:border-terminal-green/60 transition-all rounded backdrop-blur-md">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+        返回主页
     </a>
 
-    <div class="min-h-screen matrix-bg">
-        <div class="max-w-5xl mx-auto px-4 py-24">
-            <header class="mb-16">
-                <div class="flex items-center gap-3 mb-6">
-                    <span class="text-terminal-green font-mono text-sm">root@cu1ao:~$</span>
-                    <span class="text-gray-400 font-mono">cat course_info.md</span>
-                </div>
-                <h1 class="text-4xl md:text-5xl font-bold text-terminal-green terminal-glow font-mono mb-4">
-                    Linux 系统管理
-                </h1>
-                <div class="code-block mb-6">
-                    <div><span class="comment"># 课程描述</span></div>
-                    <div>从权限模型到文件系统架构，深入理解 Linux 核心机制。</div>
-                    <div>chmod、chown、ACL 实战演练，掌握企业级运维技能。</div>
-                </div>
-                <div class="flex flex-wrap gap-2">
-                    <span class="px-3 py-1 rounded font-mono text-xs bg-terminal-green/10 border border-terminal-green/30 text-terminal-green">权限管理</span>
-                    <span class="px-3 py-1 rounded font-mono text-xs bg-terminal-green/10 border border-terminal-green/30 text-terminal-green">Shell</span>
-                    <span class="px-3 py-1 rounded font-mono text-xs bg-terminal-green/10 border border-terminal-green/30 text-terminal-green">文件系统</span>
-                    <span class="px-3 py-1 rounded font-mono text-xs bg-terminal-green/10 border border-terminal-green/30 text-terminal-green">12 课时</span>
-                </div>
-            </header>
-
-            <div class="space-y-8">
-                <section class="terminal-bg border border-terminal-border rounded-lg p-6">
-                    <div class="flex items-center gap-2 mb-4">
-                        <span class="text-terminal-green font-mono">$</span>
-                        <span class="text-gray-400 font-mono">ls -la modules/</span>
-                    </div>
-                    <h2 class="text-xl font-bold text-terminal-green font-mono mb-4">课程模块</h2>
-                    <div class="grid md:grid-cols-2 gap-4">
-                        <a href="00-linux_说课.html" class="block p-4 bg-[#0D1117] border border-terminal-border rounded hover:border-terminal-green/60 transition-all group">
-                            <div class="flex items-center gap-2 mb-2">
-                                <span class="text-terminal-green font-mono text-sm">01</span>
-                                <span class="text-white font-medium group-hover:text-terminal-green transition-colors">Linux 说课</span>
-                            </div>
-                            <p class="text-gray-500 text-sm">课程概述与学习路径</p>
-                        </a>
-                        <a href="03-linux_文件管理.html" class="block p-4 bg-[#0D1117] border border-terminal-border rounded hover:border-terminal-green/60 transition-all group">
-                            <div class="flex items-center gap-2 mb-2">
-                                <span class="text-terminal-green font-mono text-sm">02</span>
-                                <span class="text-white font-medium group-hover:text-terminal-green transition-colors">文件管理</span>
-                            </div>
-                            <p class="text-gray-500 text-sm">权限、所有者与 ACL</p>
-                        </a>
-                        <a href="05-Linux 网络管理.html" class="block p-4 bg-[#0D1117] border border-terminal-border rounded hover:border-terminal-green/60 transition-all group">
-                            <div class="flex items-center gap-2 mb-2">
-                                <span class="text-terminal-green font-mono text-sm">03</span>
-                                <span class="text-white font-medium group-hover:text-terminal-green transition-colors">网络管理</span>
-                            </div>
-                            <p class="text-gray-500 text-sm">IP 配置与网络诊断</p>
-                        </a>
-                        <a href="06-Linux 防火墙.html" class="block p-4 bg-[#0D1117] border border-terminal-border rounded hover:border-terminal-green/60 transition-all group">
-                            <div class="flex items-center gap-2 mb-2">
-                                <span class="text-terminal-green font-mono text-sm">04</span>
-                                <span class="text-white font-medium group-hover:text-terminal-green transition-colors">防火墙</span>
-                            </div>
-                            <p class="text-gray-500 text-sm">iptables 与 firewalld</p>
-                        </a>
-                    </div>
-                </section>
-
-                <section class="terminal-bg border border-terminal-border rounded-lg p-6">
-                    <h2 class="text-xl font-bold text-terminal-green font-mono mb-4">学习路径</h2>
-                    <div class="space-y-3 font-mono text-sm">
-                        <div class="flex items-start gap-3">
-                            <span class="text-terminal-green">[01]</span>
-                            <span class="text-gray-300">掌握 Linux 文件系统结构与目录层级</span>
-                        </div>
-                        <div class="flex items-start gap-3">
-                            <span class="text-terminal-green">[02]</span>
-                            <span class="text-gray-300">理解 Linux 权限模型 rwx 与 chmod</span>
-                        </div>
-                        <div class="flex items-start gap-3">
-                            <span class="text-terminal-green">[03]</span>
-                            <span class="text-gray-300">学习 ACL 访问控制列表实现精细权限管理</span>
-                        </div>
-                        <div class="flex items-start gap-3">
-                            <span class="text-terminal-green">[04]</span>
-                            <span class="text-gray-300">Shell 脚本编程自动化日常任务</span>
-                        </div>
-                        <div class="flex items-start gap-3">
-                            <span class="text-terminal-green">[05]</span>
-                            <span class="text-gray-300">网络配置与 firewalld 防火墙实战</span>
-                        </div>
-                    </div>
-                </section>
-
-                <section class="terminal-bg border border-terminal-border rounded-lg p-6">
-                    <div class="flex items-center gap-2 mb-4">
-                        <span class="text-terminal-green font-mono">$</span>
-                        <span class="text-gray-400 font-mono">cat skills.md</span>
-                    </div>
-                    <h2 class="text-xl font-bold text-terminal-green font-mono mb-4">核心技能</h2>
-                    <div class="space-y-4">
-                        <div>
-                            <div class="flex justify-between text-sm mb-2">
-                                <span class="text-gray-400 font-mono">文件系统操作</span>
-                                <span class="text-terminal-green font-mono">精通</span>
-                            </div>
-                            <div class="h-2 bg-[#161B22] rounded-full overflow-hidden">
-                                <div class="h-full bg-terminal-green rounded-full w-[0%]"></div>
-                            </div>
-                        </div>
-                        <div>
-                            <div class="flex justify-between text-sm mb-2">
-                                <span class="text-gray-400 font-mono">权限管理</span>
-                                <span class="text-terminal-green font-mono">精通</span>
-                            </div>
-                            <div class="h-2 bg-[#161B22] rounded-full overflow-hidden">
-                                <div class="h-full bg-terminal-green rounded-full w-[0%]"></div>
-                            </div>
-                        </div>
-                        <div>
-                            <div class="flex justify-between text-sm mb-2">
-                                <span class="text-gray-400 font-mono">Shell 脚本</span>
-                                <span class="text-terminal-green font-mono">掌握</span>
-                            </div>
-                            <div class="h-2 bg-[#161B22] rounded-full overflow-hidden">
-                                <div class="h-full bg-terminal-green rounded-full w-[0%]"></div>
-                            </div>
-                        </div>
-                        <div>
-                            <div class="flex justify-between text-sm mb-2">
-                                <span class="text-gray-400 font-mono">网络配置</span>
-                                <span class="text-terminal-green font-mono">掌握</span>
-                            </div>
-                            <div class="h-2 bg-[#161B22] rounded-full overflow-hidden">
-                                <div class="h-full bg-terminal-green rounded-full w-[0%]"></div>
-                            </div>
-                        </div>
-                    </div>
-                </section>
+    <section class="relative min-h-screen flex items-center justify-center overflow-hidden">
+        <canvas id="particleCanvas"></canvas>
+        <div class="absolute inset-0 grid-bg"></div>
+        
+        <div class="relative z-10 text-center px-4 max-w-4xl mx-auto">
+            <div class="reveal">
+                <span class="inline-block px-4 py-2 rounded-full border border-terminal-green/30 bg-terminal-green/10 text-terminal-green font-mono text-sm mb-8">
+                    <span class="inline-block w-2 h-2 rounded-full bg-terminal-green animate-pulse mr-2"></span>
+                    LINXU SYSTEM COURSE
+                </span>
             </div>
-
-            <footer class="mt-16 pt-8 border-t border-terminal-border text-center">
-                <p class="text-gray-500 text-sm font-mono">
-                    <span class="text-terminal-green">CU1AO</span> · 技术课程空间站 · Linux 系统管理
-                </p>
-                <p class="text-gray-600 text-xs font-mono mt-2">
-                    Last login: <span id="datetime"></span>
-                </p>
-            </footer>
+            
+            <h1 class="reveal reveal-delay-1 text-5xl md:text-7xl font-bold font-mono text-terminal-green glow-text mb-6">
+                Linxu 系统管理
+            </h1>
+            
+            <p class="reveal reveal-delay-2 text-xl md:text-2xl text-gray-400 mb-4 max-w-2xl mx-auto">
+                从权限模型到文件系统架构，深入理解 Linux 核心机制
+            </p>
+            
+            <p class="reveal reveal-delay-3 text-gray-500 mb-10 font-mono">
+                chmod · chown · ACL · Shell · 网络配置
+            </p>
+            
+            <div class="reveal reveal-delay-4 flex flex-wrap justify-center gap-3">
+                <span class="px-4 py-2 rounded-full border border-terminal-green/30 bg-terminal-green/10 text-terminal-green font-mono text-sm">权限管理</span>
+                <span class="px-4 py-2 rounded-full border border-terminal-green/30 bg-terminal-green/10 text-terminal-green font-mono text-sm">Shell</span>
+                <span class="px-4 py-2 rounded-full border border-terminal-green/30 bg-terminal-green/10 text-terminal-green font-mono text-sm">文件系统</span>
+                <span class="px-4 py-2 rounded-full border border-terminal-green/30 bg-terminal-green/10 text-terminal-green font-mono text-sm">12 课时</span>
+            </div>
+            
+            <div class="reveal reveal-delay-4 mt-16">
+                <div class="inline-flex flex-col items-center text-terminal-green/50 animate-bounce">
+                    <span class="text-xs font-mono mb-2">SCROLL</span>
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"></path></svg>
+                </div>
+            </div>
         </div>
-    </div>
+    </section>
+
+    <section class="py-24 px-4 relative">
+        <div class="max-w-7xl mx-auto">
+            <div class="text-center mb-16">
+                <h2 class="reveal text-3xl md:text-4xl font-bold font-mono text-terminal-green mb-4">
+                    <span class="text-gray-400">$</span> ls -la modules/
+                </h2>
+                <p class="reveal reveal-delay-1 text-gray-500">课程模块架构</p>
+            </div>
+            
+            <div class="grid lg:grid-cols-2 gap-12 items-center">
+                <div class="space-y-6">
+                    <a href="00-linux_说课.html" class="card-hover reveal block p-6 rounded-xl bg-terminal-dark-light/50 backdrop-blur-sm group">
+                        <div class="flex items-start gap-4">
+                            <div class="flex-shrink-0 w-12 h-12 rounded-lg bg-terminal-green/10 border border-terminal-green/30 flex items-center justify-center text-terminal-green font-mono text-lg pulse-node">01</div>
+                            <div class="flex-1">
+                                <h3 class="text-xl font-bold text-white mb-2 group-hover:text-terminal-green transition-colors">Linux 说课</h3>
+                                <p class="text-gray-500 text-sm">课程概述与学习路径规划</p>
+                            </div>
+                            <svg class="w-5 h-5 text-terminal-green/50 group-hover:text-terminal-green group-hover:translate-x-1 transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                        </div>
+                    </a>
+                    
+                    <a href="03-linux_文件管理.html" class="card-hover reveal reveal-delay-1 block p-6 rounded-xl bg-terminal-dark-light/50 backdrop-blur-sm group">
+                        <div class="flex items-start gap-4">
+                            <div class="flex-shrink-0 w-12 h-12 rounded-lg bg-terminal-green/10 border border-terminal-green/30 flex items-center justify-center text-terminal-green font-mono text-lg pulse-node" style="animation-delay: 0.5s;">02</div>
+                            <div class="flex-1">
+                                <h3 class="text-xl font-bold text-white mb-2 group-hover:text-terminal-green transition-colors">文件管理</h3>
+                                <p class="text-gray-500 text-sm">权限、所有者与 ACL 访问控制</p>
+                            </div>
+                            <svg class="w-5 h-5 text-terminal-green/50 group-hover:text-terminal-green group-hover:translate-x-1 transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                        </div>
+                    </a>
+                    
+                    <a href="05-Linux 网络管理.html" class="card-hover reveal reveal-delay-2 block p-6 rounded-xl bg-terminal-dark-light/50 backdrop-blur-sm group">
+                        <div class="flex items-start gap-4">
+                            <div class="flex-shrink-0 w-12 h-12 rounded-lg bg-terminal-green/10 border border-terminal-green/30 flex items-center justify-center text-terminal-green font-mono text-lg pulse-node" style="animation-delay: 1s;">03</div>
+                            <div class="flex-1">
+                                <h3 class="text-xl font-bold text-white mb-2 group-hover:text-terminal-green transition-colors">网络管理</h3>
+                                <p class="text-gray-500 text-sm">IP 配置与网络诊断工具</p>
+                            </div>
+                            <svg class="w-5 h-5 text-terminal-green/50 group-hover:text-terminal-green group-hover:translate-x-1 transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                        </div>
+                    </a>
+                    
+                    <a href="06-Linux 防火墙.html" class="card-hover reveal reveal-delay-3 block p-6 rounded-xl bg-terminal-dark-light/50 backdrop-blur-sm group">
+                        <div class="flex items-start gap-4">
+                            <div class="flex-shrink-0 w-12 h-12 rounded-lg bg-terminal-green/10 border border-terminal-green/30 flex items-center justify-center text-terminal-green font-mono text-lg pulse-node" style="animation-delay: 1.5s;">04</div>
+                            <div class="flex-1">
+                                <h3 class="text-xl font-bold text-white mb-2 group-hover:text-terminal-green transition-colors">防火墙</h3>
+                                <p class="text-gray-500 text-sm">iptables 与 firewalld 实战</p>
+                            </div>
+                            <svg class="w-5 h-5 text-terminal-green/50 group-hover:text-terminal-green group-hover:translate-x-1 transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                        </div>
+                    </a>
+                </div>
+                
+                <div class="reveal reveal-delay-2 relative">
+                    <svg viewBox="0 0 400 400" class="w-full max-w-md mx-auto" fill="none">
+                        <defs>
+                            <linearGradient id="lineGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                                <stop offset="0%" style="stop-color:#00FF41;stop-opacity:0.2" />
+                                <stop offset="50%" style="stop-color:#00FF41;stop-opacity:1" />
+                                <stop offset="100%" style="stop-color:#00FF41;stop-opacity:0.2" />
+                            </linearGradient>
+                            <filter id="glow">
+                                <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+                                <feMerge>
+                                    <feMergeNode in="coloredBlur"/>
+                                    <feMergeNode in="SourceGraphic"/>
+                                </feMerge>
+                            </filter>
+                        </defs>
+                        
+                        <path d="M 200 60 L 200 150" class="flow-line" stroke="#00FF41" stroke-width="2" opacity="0.6"/>
+                        <path d="M 200 190 L 200 280" class="flow-line" stroke="#00FF41" stroke-width="2" opacity="0.6" style="animation-delay: 0.2s"/>
+                        <path d="M 200 320 L 200 380" class="flow-line" stroke="#00FF41" stroke-width="2" opacity="0.6" style="animation-delay: 0.4s"/>
+                        
+                        <path d="M 120 130 L 280 130" class="flow-line" stroke="#00FF41" stroke-width="2" opacity="0.4" style="animation-delay: 0.3s"/>
+                        <path d="M 120 270 L 280 270" class="flow-line" stroke="#00FF41" stroke-width="2" opacity="0.4" style="animation-delay: 0.5s"/>
+                        
+                        <circle cx="200" cy="60" r="8" fill="#00FF41" filter="url(#glow)" class="pulse-node"/>
+                        <circle cx="120" cy="150" r="6" fill="#00FF41" filter="url(#glow)" class="pulse-node" style="animation-delay: 0.3s"/>
+                        <circle cx="280" cy="150" r="6" fill="#00FF41" filter="url(#glow)" class="pulse-node" style="animation-delay: 0.6s"/>
+                        <circle cx="120" cy="210" r="6" fill="#00FF41" filter="url(#glow)" class="pulse-node" style="animation-delay: 0.9s"/>
+                        <circle cx="280" cy="210" r="6" fill="#00FF41" filter="url(#glow)" class="pulse-node" style="animation-delay: 1.2s"/>
+                        <circle cx="200" cy="290" r="6" fill="#00FF41" filter="url(#glow)" class="pulse-node" style="animation-delay: 0.15s"/>
+                        <circle cx="120" cy="290" r="6" fill="#00FF41" filter="url(#glow)" class="pulse-node" style="animation-delay: 0.45s"/>
+                        <circle cx="280" cy="290" r="6" fill="#00FF41" filter="url(#glow)" class="pulse-node" style="animation-delay: 0.75s"/>
+                        <circle cx="200" cy="380" r="10" fill="#00FF41" filter="url(#glow)" class="pulse-node" style="animation-delay: 0.25s"/>
+                        
+                        <text x="200" y="45" text-anchor="middle" fill="#00FF41" font-family="JetBrains Mono" font-size="10" class="font-mono">说课</text>
+                        <text x="120" y="175" text-anchor="middle" fill="#E6EDF3" font-family="JetBrains Mono" font-size="9" class="font-mono">文件</text>
+                        <text x="280" y="175" text-anchor="middle" fill="#E6EDF3" font-family="JetBrains Mono" font-size="9" class="font-mono">权限</text>
+                        <text x="120" y="235" text-anchor="middle" fill="#E6EDF3" font-family="JetBrains Mono" font-size="9" class="font-mono">Shell</text>
+                        <text x="280" y="235" text-anchor="middle" fill="#E6EDF3" font-family="JetBrains Mono" font-size="9" class="font-mono">ACL</text>
+                        <text x="200" y="315" text-anchor="middle" fill="#E6EDF3" font-family="JetBrains Mono" font-size="9" class="font-mono">网络</text>
+                        <text x="120" y="315" text-anchor="middle" fill="#E6EDF3" font-family="JetBrains Mono" font-size="9" class="font-mono">诊断</text>
+                        <text x="280" y="315" text-anchor="middle" fill="#E6EDF3" font-family="JetBrains Mono" font-size="9" class="font-mono">防火墙</text>
+                        <text x="200" y="405" text-anchor="middle" fill="#00FF41" font-family="JetBrains Mono" font-size="11" font-weight="bold" class="font-mono glow-text">精通</text>
+                    </svg>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="py-24 px-4 relative">
+        <div class="absolute inset-0 bg-gradient-to-b from-transparent via-terminal-green/5 to-transparent"></div>
+        <div class="max-w-4xl mx-auto relative z-10">
+            <div class="text-center mb-16">
+                <h2 class="reveal text-3xl md:text-4xl font-bold font-mono text-terminal-green mb-4">
+                    <span class="text-gray-400">$</span> cat learning_path.md
+                </h2>
+                <p class="reveal reveal-delay-1 text-gray-500">学习路径</p>
+            </div>
+            
+            <div class="space-y-8">
+                <div class="reveal relative pl-8 border-l-2 border-terminal-green/30">
+                    <div class="absolute left-0 top-0 w-4 h-4 -translate-x-[9px] rounded-full bg-terminal-green"></div>
+                    <div class="bg-terminal-dark-light/30 p-6 rounded-xl border border-terminal-border">
+                        <span class="text-terminal-green font-mono text-sm">[01]</span>
+                        <h3 class="text-xl font-bold text-white mt-2 mb-2">掌握 Linux 文件系统结构</h3>
+                        <p class="text-gray-500">理解目录层级、FHS 标准、绝对路径与相对路径</p>
+                    </div>
+                </div>
+                
+                <div class="reveal reveal-delay-1 relative pl-8 border-l-2 border-terminal-green/30">
+                    <div class="absolute left-0 top-0 w-4 h-4 -translate-x-[9px] rounded-full bg-terminal-green"></div>
+                    <div class="bg-terminal-dark-light/30 p-6 rounded-xl border border-terminal-border">
+                        <span class="text-terminal-green font-mono text-sm">[02]</span>
+                        <h3 class="text-xl font-bold text-white mt-2 mb-2">理解 Linux 权限模型</h3>
+                        <p class="text-gray-500">rwx 权限、chmod、chown、su 与 sudo</p>
+                    </div>
+                </div>
+                
+                <div class="reveal reveal-delay-2 relative pl-8 border-l-2 border-terminal-green/30">
+                    <div class="absolute left-0 top-0 w-4 h-4 -translate-x-[9px] rounded-full bg-terminal-green"></div>
+                    <div class="bg-terminal-dark-light/30 p-6 rounded-xl border border-terminal-border">
+                        <span class="text-terminal-green font-mono text-sm">[03]</span>
+                        <h3 class="text-xl font-bold text-white mt-2 mb-2">学习 ACL 访问控制列表</h3>
+                        <p class="text-gray-500">实现精细化权限管理</p>
+                    </div>
+                </div>
+                
+                <div class="reveal reveal-delay-3 relative pl-8 border-l-2 border-terminal-green/30">
+                    <div class="absolute left-0 top-0 w-4 h-4 -translate-x-[9px] rounded-full bg-terminal-green"></div>
+                    <div class="bg-terminal-dark-light/30 p-6 rounded-xl border border-terminal-border">
+                        <span class="text-terminal-green font-mono text-sm">[04]</span>
+                        <h3 class="text-xl font-bold text-white mt-2 mb-2">Shell 脚本编程</h3>
+                        <p class="text-gray-500">自动化日常任务、变量、循环、条件判断</p>
+                    </div>
+                </div>
+                
+                <div class="reveal reveal-delay-4 relative pl-8 border-l-2 border-terminal-green/20">
+                    <div class="absolute left-0 top-0 w-4 h-4 -translate-x-[9px] rounded-full bg-terminal-green/50"></div>
+                    <div class="bg-terminal-dark-light/30 p-6 rounded-xl border border-terminal-border/50">
+                        <span class="text-terminal-green/70 font-mono text-sm">[05]</span>
+                        <h3 class="text-xl font-bold text-white/70 mt-2 mb-2">网络配置与防火墙</h3>
+                        <p class="text-gray-600">firewalld、iptables、网络安全</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <footer class="py-12 px-4 border-t border-terminal-border/50">
+        <div class="max-w-4xl mx-auto text-center">
+            <p class="text-gray-500 text-sm font-mono">
+                <span class="text-terminal-green">CU1AO</span> · 技术课程空间站 · Linxu 系统管理
+            </p>
+            <p class="text-gray-600 text-xs font-mono mt-2">
+                Last login: <span id="datetime"></span>
+            </p>
+        </div>
+    </footer>
 
     <script>
+        const canvas = document.getElementById('particleCanvas');
+        const ctx = canvas.getContext('2d');
+        let particles = [];
+        let animationId;
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        class Particle {
+            constructor() {
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * canvas.height;
+                this.size = Math.random() * 2 + 1;
+                this.speedX = (Math.random() - 0.5) * 0.5;
+                this.speedY = (Math.random() - 0.5) * 0.5;
+                this.opacity = Math.random() * 0.5 + 0.3;
+            }
+
+            update() {
+                this.x += this.speedX;
+                this.y += this.speedY;
+
+                if (this.x > canvas.width) this.x = 0;
+                if (this.x < 0) this.x = canvas.width;
+                if (this.y > canvas.height) this.y = 0;
+                if (this.y < 0) this.y = canvas.height;
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(0, 255, 65, ${this.opacity})`;
+                ctx.fill();
+            }
+        }
+
+        function initParticles() {
+            particles = [];
+            const count = Math.min(100, Math.floor((canvas.width * canvas.height) / 15000));
+            for (let i = 0; i < count; i++) {
+                particles.push(new Particle());
+            }
+        }
+        initParticles();
+
+        function connectParticles() {
+            for (let i = 0; i < particles.length; i++) {
+                for (let j = i + 1; j < particles.length; j++) {
+                    const dx = particles[i].x - particles[j].x;
+                    const dy = particles[i].y - particles[j].y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+
+                    if (distance < 150) {
+                        ctx.beginPath();
+                        ctx.strokeStyle = `rgba(0, 255, 65, ${0.15 * (1 - distance / 150)})`;
+                        ctx.lineWidth = 0.5;
+                        ctx.moveTo(particles[i].x, particles[i].y);
+                        ctx.lineTo(particles[j].x, particles[j].y);
+                        ctx.stroke();
+                    }
+                }
+            }
+        }
+
+        function animateParticles() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            particles.forEach(p => {
+                p.update();
+                p.draw();
+            });
+            connectParticles();
+            animationId = requestAnimationFrame(animateParticles);
+        }
+        animateParticles();
+
+        const observerOptions = {
+            threshold: 0.1,
+            rootMargin: '0px 0px -50px 0px'
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('active');
+                }
+            });
+        }, observerOptions);
+
+        document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
         document.getElementById('datetime').textContent = new Date().toLocaleString('zh-CN');
     </script>
 </body>
