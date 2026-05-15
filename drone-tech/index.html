@@ -3,24 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>无人机技术 · CU1AO</title>
+    <title>无人机技术 | CU1AO</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=Noto+Sans+SC:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
     <script>
         tailwind.config = {
             theme: {
                 extend: {
                     fontFamily: {
-                        'orbitron': ['Orbitron', 'sans-serif'],
+                        'exo': ['Exo 2', 'sans-serif'],
                         'noto': ['Noto Sans SC', 'sans-serif'],
                     },
                     colors: {
-                        'neon-pink': '#FF006E',
-                        'neon-pink-light': '#FF4DA6',
-                        'neon-pink-dark': '#C7006B',
-                        'deep-black': '#0A0A0F',
-                        'card-black': '#111118',
-                        'card-border': '#1E1E2E',
+                        'drone-orange': '#FF6B35',
+                        'drone-amber': '#F7C331',
+                        'drone-dark': '#1A1A2E',
+                        'drone-border': '#16213E',
                     }
                 }
             }
@@ -29,163 +27,208 @@
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            background: #0A0A0F;
+            background: linear-gradient(135deg, #1A1A2E 0%, #16213E 50%, #0F0F23 100%);
             font-family: 'Noto Sans SC', sans-serif;
-            color: #fff;
+            color: #FFF5E6;
         }
-        .neon-text-glow {
-            text-shadow: 
-                0 0 10px rgba(255, 0, 110, 0.8),
-                0 0 30px rgba(255, 0, 110, 0.4),
-                0 0 60px rgba(255, 0, 110, 0.2);
+        .drone-gradient {
+            background: 
+                radial-gradient(ellipse at 30% 20%, rgba(255, 107, 53, 0.15) 0%, transparent 50%),
+                radial-gradient(ellipse at 70% 80%, rgba(247, 195, 49, 0.1) 0%, transparent 50%);
+        }
+        .drone-glow {
+            text-shadow: 0 0 20px rgba(255, 107, 53, 0.8), 0 0 40px rgba(255, 107, 53, 0.4);
+        }
+        @keyframes flight-path {
+            0% { transform: translateX(0) translateY(0); opacity: 0.8; }
+            50% { transform: translateX(100px) translateY(-30px); opacity: 1; }
+            100% { transform: translateX(200px) translateY(0); opacity: 0.8; }
+        }
+        @keyframes hover-drone {
+            0%, 100% { transform: translateY(0) rotate(0deg); }
+            25% { transform: translateY(-5px) rotate(2deg); }
+            75% { transform: translateY(5px) rotate(-2deg); }
+        }
+        .drone-hover { animation: hover-drone 4s ease-in-out infinite; }
+        .flight-trail {
+            position: relative;
+        }
+        .flight-trail::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, rgba(255, 107, 53, 0.5), transparent);
+        }
+        .drone-card {
+            background: linear-gradient(145deg, rgba(255, 107, 53, 0.08) 0%, rgba(26, 26, 46, 0.95) 100%);
+            border: 1px solid rgba(255, 107, 53, 0.3);
+        }
+        .compass-ring {
+            border: 2px solid rgba(255, 107, 53, 0.3);
+            border-radius: 50%;
         }
         ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: #0A0A0F; }
-        ::-webkit-scrollbar-thumb { background: #FF006E; border-radius: 3px; }
+        ::-webkit-scrollbar-track { background: #1A1A2E; }
+        ::-webkit-scrollbar-thumb { background: #FF6B35; border-radius: 3px; }
+        .altitude-meter {
+            background: linear-gradient(180deg, #16213E 0%, #1A1A2E 100%);
+            border: 1px solid rgba(255, 107, 53, 0.2);
+        }
     </style>
 </head>
-<body class="min-h-screen">
-    <div class="max-w-6xl mx-auto px-4 py-12">
-        <a href="../index.html" class="inline-flex items-center gap-2 text-[#FF4DA6] hover:text-[#FF006E] transition-colors mb-8">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
-            返回首页
-        </a>
+<body>
+    <a href="../index.html" class="fixed top-6 left-6 z-50 flex items-center gap-2 px-4 py-2 bg-drone-dark/90 border border-drone-orange/50 text-drone-amber text-sm font-medium hover:bg-drone-orange/20 hover:border-drone-orange transition-all rounded backdrop-blur-md">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+        返回主页
+    </a>
 
-        <header class="text-center mb-16">
-            <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-[#FF006E]/30 bg-[#FF006E]/10 text-[#FF4DA6] text-sm font-mono mb-6">
-                <span class="w-2 h-2 rounded-full bg-[#FF006E] animate-pulse"></span>
-                COURSE MODULE
-            </div>
-            <h1 class="text-4xl md:text-5xl font-orbitron font-bold text-white mb-4">
-                <span class="text-[#FF006E] neon-text-glow">无人机</span>技术
-            </h1>
-            <p class="text-gray-400 text-lg max-w-2xl mx-auto">
-                DJI Mavic 操作实训、飞行法规、航拍技术、360°自旋动作教学。从证件到实操的完整指南。
-            </p>
-            <div class="flex flex-wrap justify-center gap-2 mt-6">
-                <span class="px-3 py-1 rounded-full text-xs font-medium border border-[#FF006E]/30 bg-[#FF006E]/10 text-[#FF4DA6]">DJI</span>
-                <span class="px-3 py-1 rounded-full text-xs font-medium border border-[#FF006E]/30 bg-[#FF006E]/10 text-[#FF4DA6]">航拍</span>
-                <span class="px-3 py-1 rounded-full text-xs font-medium border border-[#FF006E]/30 bg-[#FF006E]/10 text-[#FF4DA6]">法规</span>
-                <span class="px-3 py-1 rounded-full text-xs font-medium border border-[#FF006E]/30 bg-[#FF006E]/10 text-[#FF4DA6]">6 课时</span>
-            </div>
-        </header>
+    <div class="min-h-screen drone-gradient">
+        <div class="max-w-5xl mx-auto px-4 py-24">
+            <header class="text-center mb-16 relative">
+                <div class="absolute top-10 left-1/4 w-48 h-48 rounded-full bg-drone-orange/5 blur-3xl drone-hover"></div>
+                <div class="relative">
+                    <div class="inline-flex items-center gap-3 mb-6 px-4 py-2 rounded-full border border-drone-orange/30 bg-drone-orange/10">
+                        <svg class="w-4 h-4 text-drone-orange" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                        </svg>
+                        <span class="text-drone-amber text-sm tracking-[0.15em] font-medium">FLIGHT COURSE</span>
+                    </div>
+                    <h1 class="text-4xl md:text-5xl font-exo font-bold text-white mb-4">
+                        <span class="text-drone-orange drone-glow">无人机</span>技术
+                    </h1>
+                    <p class="text-amber-100/80 text-lg max-w-2xl mx-auto mb-6">
+                        DJI Mavic 操作实训、飞行法规、航拍技术、360°自旋动作教学。从证件到实操的完整指南。
+                    </p>
+                    <div class="flex flex-wrap justify-center gap-2">
+                        <span class="px-3 py-1 rounded-full text-xs font-medium border border-drone-orange/30 bg-drone-orange/10 text-drone-amber">DJI</span>
+                        <span class="px-3 py-1 rounded-full text-xs font-medium border border-drone-orange/30 bg-drone-orange/10 text-drone-amber">航拍</span>
+                        <span class="px-3 py-1 rounded-full text-xs font-medium border border-drone-orange/30 bg-drone-orange/10 text-drone-amber">法规</span>
+                        <span class="px-3 py-1 rounded-full text-xs font-medium border border-drone-orange/30 bg-drone-orange/10 text-drone-amber">6 课时</span>
+                    </div>
+                </div>
+            </header>
 
-        <section class="space-y-6">
-            <div class="bg-[#111118] border border-[#1E1E2E] rounded-2xl p-8">
-                <h2 class="text-xl font-bold text-white mb-4 flex items-center gap-3">
-                    <span class="w-8 h-8 rounded-lg bg-[#FF006E]/20 flex items-center justify-center text-[#FF006E] font-mono">01</span>
-                    课程介绍
-                </h2>
-                <p class="text-gray-400 leading-relaxed">
-                    本课程从零开始，系统讲解无人机操作技术与法规知识。涵盖 DJI Mavic 系列无人机操作技巧、飞行安全规范、AOPA 证件备考指南、高级飞行技巧（如 360°自旋、跟随拍摄），以及航拍摄影构图技巧。理论与实操结合，让你从新手成长为合格的飞手。
-                </p>
-            </div>
-
-            <div class="grid md:grid-cols-2 gap-6">
-                <div class="bg-[#111118] border border-[#1E1E2E] rounded-2xl p-8">
-                    <h2 class="text-xl font-bold text-white mb-4 flex items-center gap-3">
-                        <span class="w-8 h-8 rounded-lg bg-[#FF006E]/20 flex items-center justify-center text-[#FF006E] font-mono">02</span>
-                        学习路径
+            <div class="space-y-8">
+                <div class="drone-card rounded-2xl p-8 relative overflow-hidden">
+                    <div class="absolute -top-10 -right-10 w-40 h-40 rounded-full bg-drone-orange/5 blur-2xl"></div>
+                    <h2 class="text-xl font-bold text-white mb-4 flex items-center gap-3 relative">
+                        <span class="w-10 h-10 rounded-xl bg-gradient-to-br from-drone-orange to-drone-amber flex items-center justify-center text-white font-bold">01</span>
+                        课程介绍
                     </h2>
-                    <ul class="space-y-3 text-gray-400">
-                        <li class="flex items-start gap-2">
-                            <span class="text-[#FF006E] mt-1">▹</span>
-                            阶段一：无人机基础理论与安全规范
-                        </li>
-                        <li class="flex items-start gap-2">
-                            <span class="text-[#FF006E] mt-1">▹</span>
-                            阶段二：DJI Mavic 操作界面熟悉
-                        </li>
-                        <li class="flex items-start gap-2">
-                            <span class="text-[#FF006E] mt-1">▹</span>
-                            阶段三：基础飞行训练
-                        </li>
-                        <li class="flex items-start gap-2">
-                            <span class="text-[#FF006E] mt-1">▹</span>
-                            阶段四：高级飞行技巧（环绕、跟随、渐远）
-                        </li>
-                        <li class="flex items-start gap-2">
-                            <span class="text-[#FF006E] mt-1">▹</span>
-                            阶段五：航拍摄影基础与构图
-                        </li>
-                        <li class="flex items-start gap-2">
-                            <span class="text-[#FF006E] mt-1">▹</span>
-                            阶段六：AOPA 证件备考指导
-                        </li>
-                    </ul>
+                    <p class="text-amber-100/80 leading-relaxed relative">
+                        本课程从零开始，系统讲解无人机操作技术与法规知识。涵盖 DJI Mavic 系列无人机操作技巧、飞行安全规范、AOPA 证件备考指南、高级飞行技巧（如 360°自旋、跟随拍摄），以及航拍摄影构图技巧。理论与实操结合，让你从新手成长为合格的飞手。
+                    </p>
                 </div>
 
-                <div class="bg-[#111118] border border-[#1E1E2E] rounded-2xl p-8">
-                    <h2 class="text-xl font-bold text-white mb-4 flex items-center gap-3">
-                        <span class="w-8 h-8 rounded-lg bg-[#FF006E]/20 flex items-center justify-center text-[#FF006E] font-mono">03</span>
-                        核心技能
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div class="drone-card rounded-2xl p-8 drone-hover">
+                        <h2 class="text-xl font-bold text-white mb-4 flex items-center gap-3">
+                            <span class="w-10 h-10 rounded-xl bg-gradient-to-br from-drone-orange to-drone-amber flex items-center justify-center text-white font-bold">02</span>
+                            学习路径
+                        </h2>
+                        <ul class="space-y-3 text-amber-100/80">
+                            <li class="flex items-start gap-2">
+                                <span class="text-drone-amber mt-1">▹</span>
+                                阶段一：无人机基础理论与安全规范
+                            </li>
+                            <li class="flex items-start gap-2">
+                                <span class="text-drone-amber mt-1">▹</span>
+                                阶段二：DJI Mavic 操作界面熟悉
+                            </li>
+                            <li class="flex items-start gap-2">
+                                <span class="text-drone-amber mt-1">▹</span>
+                                阶段三：基础飞行训练
+                            </li>
+                            <li class="flex items-start gap-2">
+                                <span class="text-drone-amber mt-1">▹</span>
+                                阶段四：高级飞行技巧（环绕、跟随、渐远）
+                            </li>
+                            <li class="flex items-start gap-2">
+                                <span class="text-drone-amber mt-1">▹</span>
+                                阶段五：航拍摄影基础与构图
+                            </li>
+                            <li class="flex items-start gap-2">
+                                <span class="text-drone-amber mt-1">▹</span>
+                                阶段六：AOPA 证件备考指导
+                            </li>
+                        </ul>
+                    </div>
+
+                    <div class="drone-card rounded-2xl p-8">
+                        <h2 class="text-xl font-bold text-white mb-4 flex items-center gap-3">
+                            <span class="w-10 h-10 rounded-xl bg-gradient-to-br from-drone-orange to-drone-amber flex items-center justify-center text-white font-bold">03</span>
+                            核心技能
+                        </h2>
+                        <div class="space-y-4">
+                            <div>
+                                <div class="flex justify-between text-sm mb-2">
+                                    <span class="text-amber-100/80">飞行操作</span>
+                                    <span class="text-drone-amber">核心</span>
+                                </div>
+                                <div class="h-2 bg-drone-border rounded-full overflow-hidden">
+                                    <div class="h-full bg-gradient-to-r from-drone-orange to-drone-amber rounded-full w-[0%]"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-sm mb-2">
+                                    <span class="text-amber-100/80">航拍技术</span>
+                                    <span class="text-drone-amber">核心</span>
+                                </div>
+                                <div class="h-2 bg-drone-border rounded-full overflow-hidden">
+                                    <div class="h-full bg-gradient-to-r from-drone-orange to-drone-amber rounded-full w-[0%]"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-sm mb-2">
+                                    <span class="text-amber-100/80">飞行法规</span>
+                                    <span class="text-drone-amber">核心</span>
+                                </div>
+                                <div class="h-2 bg-drone-border rounded-full overflow-hidden">
+                                    <div class="h-full bg-gradient-to-r from-drone-orange to-drone-amber rounded-full w-[0%]"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-sm mb-2">
+                                    <span class="text-amber-100/80">设备维护</span>
+                                    <span class="text-drone-amber">核心</span>
+                                </div>
+                                <div class="h-2 bg-drone-border rounded-full overflow-hidden">
+                                    <div class="h-full bg-gradient-to-r from-drone-orange to-drone-amber rounded-full w-[0%]"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="drone-card rounded-2xl p-8">
+                    <h2 class="text-xl font-bold text-white mb-6 flex items-center gap-3">
+                        <span class="w-10 h-10 rounded-xl bg-gradient-to-br from-drone-orange to-drone-amber flex items-center justify-center text-white font-bold">04</span>
+                        课程内容
                     </h2>
-                    <div class="space-y-4">
-                        <div>
-                            <div class="flex justify-between text-sm mb-1">
-                                <span class="text-gray-400">飞行操作</span>
-                                <span class="text-[#FF4DA6]">核心</span>
-                            </div>
-                            <div class="h-2 bg-[#1E1E2E] rounded-full overflow-hidden">
-                                <div class="h-full bg-gradient-to-r from-[#FF006E] to-[#FF4DA6] rounded-full w-[0%]"></div>
-                            </div>
+                    <div class="grid md:grid-cols-3 gap-4">
+                        <div class="p-6 rounded-xl bg-drone-dark/60 border border-drone-border text-center">
+                            <div class="text-3xl font-exo font-bold text-drone-orange mb-2">6+</div>
+                            <div class="text-amber-100/70 text-sm">课时内容</div>
                         </div>
-                        <div>
-                            <div class="flex justify-between text-sm mb-1">
-                                <span class="text-gray-400">航拍技术</span>
-                                <span class="text-[#FF4DA6]">核心</span>
-                            </div>
-                            <div class="h-2 bg-[#1E1E2E] rounded-full overflow-hidden">
-                                <div class="h-full bg-gradient-to-r from-[#FF006E] to-[#FF4DA6] rounded-full w-[0%]"></div>
-                            </div>
+                        <div class="p-6 rounded-xl bg-drone-dark/60 border border-drone-border text-center">
+                            <div class="text-3xl font-exo font-bold text-drone-orange mb-2">10+</div>
+                            <div class="text-amber-100/70 text-sm">飞行科目</div>
                         </div>
-                        <div>
-                            <div class="flex justify-between text-sm mb-1">
-                                <span class="text-gray-400">飞行法规</span>
-                                <span class="text-[#FF4DA6]">核心</span>
-                            </div>
-                            <div class="h-2 bg-[#1E1E2E] rounded-full overflow-hidden">
-                                <div class="h-full bg-gradient-to-r from-[#FF006E] to-[#FF4DA6] rounded-full w-[0%]"></div>
-                            </div>
-                        </div>
-                        <div>
-                            <div class="flex justify-between text-sm mb-1">
-                                <span class="text-gray-400">设备维护</span>
-                                <span class="text-[#FF4DA6]">核心</span>
-                            </div>
-                            <div class="h-2 bg-[#1E1E2E] rounded-full overflow-hidden">
-                                <div class="h-full bg-gradient-to-r from-[#FF006E] to-[#FF4DA6] rounded-full w-[0%]"></div>
-                            </div>
+                        <div class="p-6 rounded-xl bg-drone-dark/60 border border-drone-border text-center">
+                            <div class="text-3xl font-exo font-bold text-drone-orange mb-2">6h</div>
+                            <div class="text-amber-100/70 text-sm">总时长</div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <div class="bg-[#111118] border border-[#1E1E2E] rounded-2xl p-8">
-                <h2 class="text-xl font-bold text-white mb-6 flex items-center gap-3">
-                    <span class="w-8 h-8 rounded-lg bg-[#FF006E]/20 flex items-center justify-center text-[#FF006E] font-mono">04</span>
-                    课程内容
-                </h2>
-                <div class="grid md:grid-cols-3 gap-4 text-center">
-                    <div class="p-6 rounded-xl bg-[#0A0A0F] border border-[#1E1E2E]">
-                        <div class="text-3xl font-orbitron font-bold text-[#FF006E] mb-2">6+</div>
-                        <div class="text-gray-400 text-sm">课时内容</div>
-                    </div>
-                    <div class="p-6 rounded-xl bg-[#0A0A0F] border border-[#1E1E2E]">
-                        <div class="text-3xl font-orbitron font-bold text-[#FF006E] mb-2">10+</div>
-                        <div class="text-gray-400 text-sm">飞行科目</div>
-                    </div>
-                    <div class="p-6 rounded-xl bg-[#0A0A0F] border border-[#1E1E2E]">
-                        <div class="text-3xl font-orbitron font-bold text-[#FF006E] mb-2">6h</div>
-                        <div class="text-gray-400 text-sm">总时长</div>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <footer class="mt-16 pt-8 border-t border-[#FF006E]/10 text-center">
-            <p class="text-gray-500 text-sm">CU1AO · 技术课程空间站 · 无人机技术</p>
-        </footer>
+            <footer class="mt-16 pt-8 border-t border-drone-border/50 text-center">
+                <p class="text-amber-100/50 text-sm">CU1AO · 技术课程空间站 · 无人机技术</p>
+            </footer>
+        </div>
     </div>
 </body>
 </html>

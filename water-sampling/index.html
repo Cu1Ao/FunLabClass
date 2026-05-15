@@ -3,24 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>智能深水采样系统 · CU1AO</title>
+    <title>智能深水采样系统 | CU1AO</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=Noto+Sans+SC:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Raleway:wght@400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
     <script>
         tailwind.config = {
             theme: {
                 extend: {
                     fontFamily: {
-                        'orbitron': ['Orbitron', 'sans-serif'],
+                        'raleway': ['Raleway', 'sans-serif'],
                         'noto': ['Noto Sans SC', 'sans-serif'],
                     },
                     colors: {
-                        'neon-pink': '#FF006E',
-                        'neon-pink-light': '#FF4DA6',
-                        'neon-pink-dark': '#C7006B',
-                        'deep-black': '#0A0A0F',
-                        'card-black': '#111118',
-                        'card-border': '#1E1E2E',
+                        'water-cyan': '#06B6D4',
+                        'water-teal': '#14B8A6',
+                        'water-dark': '#042F2E',
+                        'water-border': '#134E4A',
                     }
                 }
             }
@@ -29,163 +27,215 @@
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            background: #0A0A0F;
+            background: linear-gradient(180deg, #042F2E 0%, #0F172A 100%);
             font-family: 'Noto Sans SC', sans-serif;
-            color: #fff;
+            color: #CCFBF1;
         }
-        .neon-text-glow {
-            text-shadow: 
-                0 0 10px rgba(255, 0, 110, 0.8),
-                0 0 30px rgba(255, 0, 110, 0.4),
-                0 0 60px rgba(255, 0, 110, 0.2);
+        .water-gradient {
+            background: 
+                linear-gradient(180deg, rgba(6, 182, 212, 0.1) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 0%, rgba(20, 184, 166, 0.2) 0%, transparent 60%);
+        }
+        .water-glow {
+            text-shadow: 0 0 20px rgba(6, 182, 212, 0.8), 0 0 40px rgba(6, 182, 212, 0.4);
+        }
+        @keyframes wave {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+        .wave-float { animation: wave 3s ease-in-out infinite; }
+        @keyframes ripple {
+            0% { transform: scale(1); opacity: 0.6; }
+            100% { transform: scale(1.5); opacity: 0; }
+        }
+        .water-card {
+            background: linear-gradient(145deg, rgba(20, 184, 166, 0.1) 0%, rgba(6, 182, 212, 0.05) 100%);
+            border: 1px solid rgba(6, 182, 212, 0.3);
+        }
+        .ripple-effect::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 100%;
+            height: 100%;
+            transform: translate(-50%, -50%);
+            border: 1px solid rgba(6, 182, 212, 0.3);
+            border-radius: inherit;
+            animation: ripple 3s ease-out infinite;
         }
         ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: #0A0A0F; }
-        ::-webkit-scrollbar-thumb { background: #FF006E; border-radius: 3px; }
+        ::-webkit-scrollbar-track { background: #042F2E; }
+        ::-webkit-scrollbar-thumb { background: #06B6D4; border-radius: 3px; }
+        .depth-meter {
+            background: linear-gradient(180deg, #134E4A 0%, #042F2E 100%);
+            border: 1px solid rgba(6, 182, 212, 0.2);
+        }
     </style>
 </head>
-<body class="min-h-screen">
-    <div class="max-w-6xl mx-auto px-4 py-12">
-        <a href="../index.html" class="inline-flex items-center gap-2 text-[#FF4DA6] hover:text-[#FF006E] transition-colors mb-8">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
-            返回首页
-        </a>
+<body>
+    <a href="../index.html" class="fixed top-6 left-6 z-50 flex items-center gap-2 px-4 py-2 bg-water-dark/90 border border-water-cyan/50 text-water-cyan text-sm font-medium hover:bg-water-cyan/20 hover:border-water-cyan transition-all rounded backdrop-blur-md">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+        返回主页
+    </a>
 
-        <header class="text-center mb-16">
-            <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-[#FF006E]/30 bg-[#FF006E]/10 text-[#FF4DA6] text-sm font-mono mb-6">
-                <span class="w-2 h-2 rounded-full bg-[#FF006E] animate-pulse"></span>
-                PROJECT COURSE
-            </div>
-            <h1 class="text-4xl md:text-5xl font-orbitron font-bold text-white mb-4">
-                智能<span class="text-[#FF006E] neon-text-glow">深水采样系统</span>
-            </h1>
-            <p class="text-gray-400 text-lg max-w-2xl mx-auto">
-                全栈嵌入式项目：电机控制、压力传感、深度定位、数据回传。从硬件到上位机的完整链路。
-            </p>
-            <div class="flex flex-wrap justify-center gap-2 mt-6">
-                <span class="px-3 py-1 rounded-full text-xs font-medium border border-[#FF006E]/30 bg-[#FF006E]/10 text-[#FF4DA6]">全栈</span>
-                <span class="px-3 py-1 rounded-full text-xs font-medium border border-[#FF006E]/30 bg-[#FF006E]/10 text-[#FF4DA6]">电机控制</span>
-                <span class="px-3 py-1 rounded-full text-xs font-medium border border-[#FF006E]/30 bg-[#FF006E]/10 text-[#FF4DA6]">传感器</span>
-                <span class="px-3 py-1 rounded-full text-xs font-medium border border-[#FF006E]/30 bg-[#FF006E]/10 text-[#FF4DA6]">项目制</span>
-            </div>
-        </header>
+    <div class="min-h-screen water-gradient">
+        <div class="max-w-5xl mx-auto px-4 py-24">
+            <header class="text-center mb-16 relative">
+                <div class="absolute inset-0 overflow-hidden pointer-events-none">
+                    <div class="absolute top-20 left-1/4 w-32 h-32 rounded-full bg-water-cyan/10 blur-3xl wave-float"></div>
+                    <div class="absolute top-40 right-1/4 w-24 h-24 rounded-full bg-water-teal/10 blur-2xl wave-float" style="animation-delay: 1s;"></div>
+                </div>
+                <div class="relative">
+                    <div class="inline-flex items-center gap-3 mb-6 px-4 py-2 rounded-full border border-water-cyan/30 bg-water-cyan/10">
+                        <svg class="w-4 h-4 text-water-cyan" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+                        </svg>
+                        <span class="text-water-cyan text-sm tracking-[0.15em] font-medium">PROJECT COURSE</span>
+                    </div>
+                    <h1 class="text-4xl md:text-5xl font-bold text-white mb-4">
+                        智能<span class="text-water-cyan water-glow">深水采样系统</span>
+                    </h1>
+                    <p class="text-water-100 text-lg max-w-2xl mx-auto mb-6">
+                        全栈嵌入式项目：电机控制、压力传感、深度定位、数据回传。从硬件到上位机的完整链路。
+                    </p>
+                    <div class="flex flex-wrap justify-center gap-2">
+                        <span class="px-3 py-1 rounded-full text-xs font-medium border border-water-cyan/30 bg-water-cyan/10 text-water-cyan">全栈</span>
+                        <span class="px-3 py-1 rounded-full text-xs font-medium border border-water-cyan/30 bg-water-cyan/10 text-water-cyan">电机控制</span>
+                        <span class="px-3 py-1 rounded-full text-xs font-medium border border-water-cyan/30 bg-water-cyan/10 text-water-cyan">传感器</span>
+                        <span class="px-3 py-1 rounded-full text-xs font-medium border border-water-cyan/30 bg-water-cyan/10 text-water-cyan">项目制</span>
+                    </div>
+                </div>
+            </header>
 
-        <section class="space-y-6">
-            <div class="bg-[#111118] border border-[#1E1E2E] rounded-2xl p-8">
-                <h2 class="text-xl font-bold text-white mb-4 flex items-center gap-3">
-                    <span class="w-8 h-8 rounded-lg bg-[#FF006E]/20 flex items-center justify-center text-[#FF006E] font-mono">01</span>
-                    项目介绍
-                </h2>
-                <p class="text-gray-400 leading-relaxed">
-                    本项目是一个完整的智能深水采样系统，涵盖从底层硬件设计到上位机开发的全栈技术。系统实现深度精确控制、多参数水质传感器数据采集、无线数据回传，以及实时监控上位机界面。通过这个项目，你将掌握嵌入式产品开发的完整流程。
-                </p>
-            </div>
-
-            <div class="grid md:grid-cols-2 gap-6">
-                <div class="bg-[#111118] border border-[#1E1E2E] rounded-2xl p-8">
-                    <h2 class="text-xl font-bold text-white mb-4 flex items-center gap-3">
-                        <span class="w-8 h-8 rounded-lg bg-[#FF006E]/20 flex items-center justify-center text-[#FF006E] font-mono">02</span>
-                        技术架构
+            <div class="space-y-8">
+                <div class="water-card rounded-2xl p-8 relative overflow-hidden">
+                    <div class="absolute top-0 right-0 w-32 h-32 rounded-full bg-water-cyan/5 blur-2xl -translate-y-1/2 translate-x-1/2"></div>
+                    <h2 class="text-xl font-bold text-white mb-4 flex items-center gap-3 relative">
+                        <span class="w-10 h-10 rounded-xl bg-gradient-to-br from-water-cyan to-water-teal flex items-center justify-center text-white font-bold">01</span>
+                        项目介绍
                     </h2>
-                    <ul class="space-y-3 text-gray-400">
-                        <li class="flex items-start gap-2">
-                            <span class="text-[#FF006E] mt-1">▹</span>
-                            硬件层：STM32 主控 + 电机驱动 + 压力传感器
-                        </li>
-                        <li class="flex items-start gap-2">
-                            <span class="text-[#FF006E] mt-1">▹</span>
-                            通讯层：RS485 / Modbus 协议
-                        </li>
-                        <li class="flex items-start gap-2">
-                            <span class="text-[#FF006E] mt-1">▹</span>
-                            控制层：PID 深度控制算法
-                        </li>
-                        <li class="flex items-start gap-2">
-                            <span class="text-[#FF006E] mt-1">▹</span>
-                            数据层：采样数据存储与处理
-                        </li>
-                        <li class="flex items-start gap-2">
-                            <span class="text-[#FF006E] mt-1">▹</span>
-                            上位机：Qt 监控界面 + 数据可视化
-                        </li>
-                    </ul>
+                    <p class="text-water-100 leading-relaxed relative">
+                        本项目是一个完整的智能深水采样系统，涵盖从底层硬件设计到上位机开发的全栈技术。系统实现深度精确控制、多参数水质传感器数据采集、无线数据回传，以及实时监控上位机界面。通过这个项目，你将掌握嵌入式产品开发的完整流程。
+                    </p>
                 </div>
 
-                <div class="bg-[#111118] border border-[#1E1E2E] rounded-2xl p-8">
-                    <h2 class="text-xl font-bold text-white mb-4 flex items-center gap-3">
-                        <span class="w-8 h-8 rounded-lg bg-[#FF006E]/20 flex items-center justify-center text-[#FF006E] font-mono">03</span>
-                        核心技能
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div class="water-card rounded-2xl p-8 relative wave-float">
+                        <h2 class="text-xl font-bold text-white mb-4 flex items-center gap-3">
+                            <span class="w-10 h-10 rounded-xl bg-gradient-to-br from-water-cyan to-water-teal flex items-center justify-center text-white font-bold">02</span>
+                            技术架构
+                        </h2>
+                        <ul class="space-y-3 text-water-100">
+                            <li class="flex items-start gap-2">
+                                <span class="text-water-teal mt-1">▹</span>
+                                硬件层：STM32 主控 + 电机驱动 + 压力传感器
+                            </li>
+                            <li class="flex items-start gap-2">
+                                <span class="text-water-teal mt-1">▹</span>
+                                通讯层：RS485 / Modbus 协议
+                            </li>
+                            <li class="flex items-start gap-2">
+                                <span class="text-water-teal mt-1">▹</span>
+                                控制层：PID 深度控制算法
+                            </li>
+                            <li class="flex items-start gap-2">
+                                <span class="text-water-teal mt-1">▹</span>
+                                数据层：采样数据存储与处理
+                            </li>
+                            <li class="flex items-start gap-2">
+                                <span class="text-water-teal mt-1">▹</span>
+                                上位机：Qt 监控界面 + 数据可视化
+                            </li>
+                        </ul>
+                    </div>
+
+                    <div class="water-card rounded-2xl p-8" style="animation-delay: 0.5s;">
+                        <h2 class="text-xl font-bold text-white mb-4 flex items-center gap-3">
+                            <span class="w-10 h-10 rounded-xl bg-gradient-to-br from-water-cyan to-water-teal flex items-center justify-center text-white font-bold">03</span>
+                            核心技能
+                        </h2>
+                        <div class="space-y-4">
+                            <div>
+                                <div class="flex justify-between text-sm mb-2">
+                                    <span class="text-water-100">嵌入式开发</span>
+                                    <span class="text-water-teal">核心</span>
+                                </div>
+                                <div class="h-2 bg-water-border rounded-full overflow-hidden">
+                                    <div class="h-full bg-gradient-to-r from-water-cyan to-water-teal rounded-full w-[0%]"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-sm mb-2">
+                                    <span class="text-water-100">电机控制</span>
+                                    <span class="text-water-teal">核心</span>
+                                </div>
+                                <div class="h-2 bg-water-border rounded-full overflow-hidden">
+                                    <div class="h-full bg-gradient-to-r from-water-cyan to-water-teal rounded-full w-[0%]"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-sm mb-2">
+                                    <span class="text-water-100">Qt 上位机</span>
+                                    <span class="text-water-teal">核心</span>
+                                </div>
+                                <div class="h-2 bg-water-border rounded-full overflow-hidden">
+                                    <div class="h-full bg-gradient-to-r from-water-cyan to-water-teal rounded-full w-[0%]"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-sm mb-2">
+                                    <span class="text-water-100">传感器应用</span>
+                                    <span class="text-water-teal">核心</span>
+                                </div>
+                                <div class="h-2 bg-water-border rounded-full overflow-hidden">
+                                    <div class="h-full bg-gradient-to-r from-water-cyan to-water-teal rounded-full w-[0%]"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="water-card rounded-2xl p-8">
+                    <h2 class="text-xl font-bold text-white mb-6 flex items-center gap-3">
+                        <span class="w-10 h-10 rounded-xl bg-gradient-to-br from-water-cyan to-water-teal flex items-center justify-center text-white font-bold">04</span>
+                        项目里程碑
                     </h2>
-                    <div class="space-y-4">
-                        <div>
-                            <div class="flex justify-between text-sm mb-1">
-                                <span class="text-gray-400">嵌入式开发</span>
-                                <span class="text-[#FF4DA6]">核心</span>
+                    <div class="depth-meter rounded-xl p-6">
+                        <div class="flex items-end justify-between h-32 relative">
+                            <div class="absolute inset-0 flex items-end justify-around px-4">
+                                <div class="w-4 bg-water-border rounded-t" style="height: 25%"></div>
+                                <div class="w-4 bg-water-border rounded-t" style="height: 50%"></div>
+                                <div class="w-4 bg-water-border rounded-t" style="height: 75%"></div>
+                                <div class="w-4 bg-water-border rounded-t" style="height: 100%"></div>
                             </div>
-                            <div class="h-2 bg-[#1E1E2E] rounded-full overflow-hidden">
-                                <div class="h-full bg-gradient-to-r from-[#FF006E] to-[#FF4DA6] rounded-full w-[0%]"></div>
-                            </div>
-                        </div>
-                        <div>
-                            <div class="flex justify-between text-sm mb-1">
-                                <span class="text-gray-400">电机控制</span>
-                                <span class="text-[#FF4DA6]">核心</span>
-                            </div>
-                            <div class="h-2 bg-[#1E1E2E] rounded-full overflow-hidden">
-                                <div class="h-full bg-gradient-to-r from-[#FF006E] to-[#FF4DA6] rounded-full w-[0%]"></div>
-                            </div>
-                        </div>
-                        <div>
-                            <div class="flex justify-between text-sm mb-1">
-                                <span class="text-gray-400">Qt 上位机</span>
-                                <span class="text-[#FF4DA6]">核心</span>
-                            </div>
-                            <div class="h-2 bg-[#1E1E2E] rounded-full overflow-hidden">
-                                <div class="h-full bg-gradient-to-r from-[#FF006E] to-[#FF4DA6] rounded-full w-[0%]"></div>
-                            </div>
-                        </div>
-                        <div>
-                            <div class="flex justify-between text-sm mb-1">
-                                <span class="text-gray-400">传感器应用</span>
-                                <span class="text-[#FF4DA6]">核心</span>
-                            </div>
-                            <div class="h-2 bg-[#1E1E2E] rounded-full overflow-hidden">
-                                <div class="h-full bg-gradient-to-r from-[#FF006E] to-[#FF4DA6] rounded-full w-[0%]"></div>
+                            <div class="w-full flex items-end justify-around px-4 pb-2">
+                                <div class="text-center">
+                                    <div class="text-xs text-water-100 mb-1">Phase 1</div>
+                                    <div class="text-xs text-water-cyan/70">硬件选型</div>
+                                </div>
+                                <div class="text-center">
+                                    <div class="text-xs text-water-100 mb-1">Phase 2</div>
+                                    <div class="text-xs text-water-cyan/70">驱动开发</div>
+                                </div>
+                                <div class="text-center">
+                                    <div class="text-xs text-water-100 mb-1">Phase 3</div>
+                                    <div class="text-xs text-water-cyan/70">控制算法</div>
+                                </div>
+                                <div class="text-center">
+                                    <div class="text-xs text-water-100 mb-1">Phase 4</div>
+                                    <div class="text-xs text-water-cyan/70">上位机</div>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <div class="bg-[#111118] border border-[#1E1E2E] rounded-2xl p-8">
-                <h2 class="text-xl font-bold text-white mb-6 flex items-center gap-3">
-                    <span class="w-8 h-8 rounded-lg bg-[#FF006E]/20 flex items-center justify-center text-[#FF006E] font-mono">04</span>
-                    项目里程碑
-                </h2>
-                <div class="grid md:grid-cols-4 gap-4 text-center">
-                    <div class="p-4 rounded-xl bg-[#0A0A0F] border border-[#1E1E2E]">
-                        <div class="text-2xl font-orbitron font-bold text-[#FF006E] mb-2">Phase 1</div>
-                        <div class="text-gray-400 text-sm">硬件选型与原理图</div>
-                    </div>
-                    <div class="p-4 rounded-xl bg-[#0A0A0F] border border-[#1E1E2E]">
-                        <div class="text-2xl font-orbitron font-bold text-[#FF006E] mb-2">Phase 2</div>
-                        <div class="text-gray-400 text-sm">驱动程序开发</div>
-                    </div>
-                    <div class="p-4 rounded-xl bg-[#0A0A0F] border border-[#1E1E2E]">
-                        <div class="text-2xl font-orbitron font-bold text-[#FF006E] mb-2">Phase 3</div>
-                        <div class="text-gray-400 text-sm">控制算法实现</div>
-                    </div>
-                    <div class="p-4 rounded-xl bg-[#0A0A0F] border border-[#1E1E2E]">
-                        <div class="text-2xl font-orbitron font-bold text-[#FF006E] mb-2">Phase 4</div>
-                        <div class="text-gray-400 text-sm">上位机开发</div>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <footer class="mt-16 pt-8 border-t border-[#FF006E]/10 text-center">
-            <p class="text-gray-500 text-sm">CU1AO · 技术课程空间站 · 智能深水采样系统</p>
-        </footer>
+            <footer class="mt-16 pt-8 border-t border-water-border/50 text-center">
+                <p class="text-water-100/50 text-sm">CU1AO · 技术课程空间站 · 智能深水采样系统</p>
+            </footer>
+        </div>
     </div>
 </body>
 </html>
