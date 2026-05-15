@@ -106,12 +106,110 @@
                 linear-gradient(90deg, rgba(0, 255, 65, 0.03) 1px, transparent 1px);
             background-size: 50px 50px;
         }
+        
+        @keyframes cursor-blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+        .cursor-blink {
+            animation: cursor-blink 1s step-end infinite;
+        }
+        
+        @keyframes scan-beam {
+            0% { transform: translateY(-100%); opacity: 0; }
+            10% { opacity: 0.5; }
+            90% { opacity: 0.5; }
+            100% { transform: translateY(100vh); opacity: 0; }
+        }
+        .scan-beam {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background: linear-gradient(90deg, transparent, #00FF41, transparent);
+            animation: scan-beam 6s linear infinite;
+            pointer-events: none;
+            z-index: 100;
+            opacity: 0.3;
+        }
+        
+        @keyframes glitch {
+            0%, 100% { transform: translate(0); }
+            20% { transform: translate(-2px, 2px); }
+            40% { transform: translate(-2px, -2px); }
+            60% { transform: translate(2px, 2px); }
+            80% { transform: translate(2px, -2px); }
+        }
+        .glitch:hover {
+            animation: glitch 0.3s ease-in-out;
+        }
+        
+        @keyframes matrix-rain {
+            0% { transform: translateY(-100%); }
+            100% { transform: translateY(100vh); }
+        }
+        .matrix-char {
+            position: fixed;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 14px;
+            color: #00FF41;
+            opacity: 0.1;
+            pointer-events: none;
+            animation: matrix-rain 8s linear infinite;
+        }
+        
+        @keyframes type-writer {
+            from { width: 0; }
+            to { width: 100%; }
+        }
+        .type-effect {
+            overflow: hidden;
+            white-space: nowrap;
+            border-right: 2px solid #00FF41;
+            animation: type-writer 2s steps(20) forwards, cursor-blink 1s step-end infinite;
+        }
+        
+        .terminal-btn {
+            position: relative;
+            overflow: hidden;
+        }
+        .terminal-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(0, 255, 65, 0.2), transparent);
+            transition: left 0.5s ease;
+        }
+        .terminal-btn:hover::before {
+            left: 100%;
+        }
+        
+        @keyframes echo-text {
+            0%, 100% { opacity: 0.1; transform: translateX(0); }
+            50% { opacity: 0.3; transform: translateX(5px); }
+        }
+        .echo-text::after {
+            content: attr(data-text);
+            position: absolute;
+            left: 0;
+            top: 0;
+            color: #00FF41;
+            opacity: 0.1;
+            animation: echo-text 2s ease-in-out infinite;
+        }
     </style>
 </head>
 <body>
-    <a href="../index.html" class="fixed top-6 left-6 z-50 flex items-center gap-2 px-4 py-2 bg-terminal-dark/90 border border-terminal-green/30 text-terminal-green font-mono text-sm hover:bg-terminal-green/10 hover:border-terminal-green/60 transition-all rounded backdrop-blur-md">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
-        返回主页
+    <div class="scan-beam"></div>
+    
+    <a href="../index.html" class="terminal-btn fixed top-6 left-6 z-50 flex items-center gap-2 px-4 py-2 bg-terminal-dark/90 border border-terminal-green/30 text-terminal-green font-mono text-sm hover:bg-terminal-green/10 hover:border-terminal-green/60 transition-all rounded backdrop-blur-md group">
+        <span class="text-terminal-green group-hover:text-terminal-green">$</span>
+        <span class="group-hover:translate-x-[-2px] transition-transform">cd ../</span>
+        <span class="cursor-blink text-terminal-green">_</span>
     </a>
 
     <section class="relative min-h-screen flex items-center justify-center overflow-hidden">
@@ -157,8 +255,8 @@
     <section class="py-24 px-4 relative">
         <div class="max-w-7xl mx-auto">
             <div class="text-center mb-16">
-                <h2 class="reveal text-3xl md:text-4xl font-bold font-mono text-terminal-green mb-4">
-                    <span class="text-gray-400">$</span> ls -la modules/
+                <h2 class="reveal text-3xl md:text-4xl font-bold font-mono text-terminal-green mb-4 cursor-pointer select-none">
+                    <span class="text-gray-400">$</span> ls -la modules/ <span class="cursor-blink text-terminal-green">_</span>
                 </h2>
                 <p class="reveal reveal-delay-1 text-gray-500">课程模块架构</p>
             </div>
@@ -263,8 +361,8 @@
         <div class="absolute inset-0 bg-gradient-to-b from-transparent via-terminal-green/5 to-transparent"></div>
         <div class="max-w-4xl mx-auto relative z-10">
             <div class="text-center mb-16">
-                <h2 class="reveal text-3xl md:text-4xl font-bold font-mono text-terminal-green mb-4">
-                    <span class="text-gray-400">$</span> cat learning_path.md
+                <h2 class="reveal text-3xl md:text-4xl font-bold font-mono text-terminal-green mb-4 cursor-pointer select-none">
+                    <span class="text-gray-400">$</span> cat learning_path.md <span class="cursor-blink text-terminal-green">_</span>
                 </h2>
                 <p class="reveal reveal-delay-1 text-gray-500">学习路径</p>
             </div>
@@ -320,12 +418,19 @@
 
     <footer class="py-12 px-4 border-t border-terminal-border/50">
         <div class="max-w-4xl mx-auto text-center">
+            <div class="font-mono text-terminal-green/30 text-xs mb-4">
+                <span class="text-terminal-green">$</span> echo $BYLINE
+            </div>
             <p class="text-gray-500 text-sm font-mono">
                 <span class="text-terminal-green">CU1AO</span> · 技术课程空间站 · Linxu 系统管理
             </p>
             <p class="text-gray-600 text-xs font-mono mt-2">
                 Last login: <span id="datetime"></span>
             </p>
+            <div class="mt-6 flex justify-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-terminal-green animate-pulse"></span>
+                <span class="text-gray-600 text-xs font-mono">system online</span>
+            </div>
         </div>
     </footer>
 
@@ -425,6 +530,33 @@
         document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
 
         document.getElementById('datetime').textContent = new Date().toLocaleString('zh-CN');
+        
+        const matrixChars = '01アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホ';
+        for (let i = 0; i < 15; i++) {
+            const char = document.createElement('div');
+            char.className = 'matrix-char';
+            char.textContent = matrixChars[Math.floor(Math.random() * matrixChars.length)];
+            char.style.left = Math.random() * 100 + '%';
+            char.style.animationDelay = Math.random() * 8 + 's';
+            char.style.animationDuration = (Math.random() * 5 + 5) + 's';
+            document.body.appendChild(char);
+        }
+        
+        const glitchElements = document.querySelectorAll('.glow-text');
+        glitchElements.forEach(el => {
+            el.addEventListener('mouseenter', () => {
+                el.style.textShadow = `
+                    0 0 10px #00FF41, 
+                    0 0 20px #00FF41, 
+                    0 0 40px #00FF41,
+                    2px 2px 0 #FF006E,
+                    -2px -2px 0 #00D4FF
+                `;
+            });
+            el.addEventListener('mouseleave', () => {
+                el.style.textShadow = '0 0 10px #00FF41, 0 0 20px #00FF41, 0 0 40px #00FF41';
+            });
+        });
     </script>
 </body>
 </html>
