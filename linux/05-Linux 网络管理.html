@@ -1,0 +1,1090 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Linux网络配置与SSH服务 - 项目6知识总结</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            violet: { 400: '#a78bfa', 500: '#8b5cf6', 600: '#7c3aed', 700: '#6d28d9' },
+            dark: '#0f172a'
+          },
+          fontFamily: {
+            sans: ['"Noto Sans SC"', 'sans-serif'],
+            mono: ['"Courier New"', 'Courier', 'monospace']
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      font-family: 'Noto Sans SC', sans-serif;
+      background: #ffffff;
+      color: #0f172a;
+      overflow: hidden;
+      height: 100%;
+      width: 100%;
+    }
+    .slide-container {
+      height: 100vh;
+      width: 100vw;
+      overflow: hidden;
+      position: relative;
+    }
+    .slides-wrapper {
+      height: 100%;
+      width: 100%;
+      transition: transform 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .slide {
+      height: 100vh;
+      width: 100vw;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 3vh 4vw;
+      position: relative;
+      overflow: hidden;
+    }
+    /* 科技感网格背景 */
+    .slide::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(139,92,246,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(139,92,246,0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+    }
+    /* 紫色光晕 */
+    .slide::after {
+      content: '';
+      position: absolute;
+      top: -20%;
+      right: -10%;
+      width: 60vh;
+      height: 60vh;
+      background: radial-gradient(circle, rgba(139,92,246,0.08) 0%, transparent 70%);
+      border-radius: 50%;
+      pointer-events: none;
+    }
+    .fade-in-up {
+      opacity: 0;
+      transform: translateY(30px);
+      transition: all 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .slide.active .fade-in-up {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .delay-100 { transition-delay: 0.1s; }
+    .delay-200 { transition-delay: 0.2s; }
+    .delay-300 { transition-delay: 0.3s; }
+    .delay-400 { transition-delay: 0.4s; }
+    .delay-500 { transition-delay: 0.5s; }
+    .code-block {
+      background: #1e1b4b;
+      border-radius: 10px;
+      padding: 0.75rem 1rem;
+      font-family: 'Courier New', Courier, monospace;
+      color: #e2e8f0;
+      overflow-x: auto;
+      border-left: 3px solid #8b5cf6;
+      box-shadow: 0 8px 32px -8px rgba(139,92,246,0.3);
+      font-size: 0.82rem;
+      line-height: 1.5;
+    }
+    .code-block .comment { color: #94a3b8; }
+    .code-block .cmd { color: #a78bfa; }
+    .code-block .arg { color: #fbbf24; }
+    .code-block .string { color: #34d399; }
+    .nav-dots {
+      position: fixed;
+      right: 1.5rem;
+      top: 50%;
+      transform: translateY(-50%);
+      z-index: 50;
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+    }
+    .nav-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #cbd5e1;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    .nav-dot.active {
+      background: #8b5cf6;
+      transform: scale(1.3);
+      box-shadow: 0 0 0 3px rgba(139,92,246,0.2);
+    }
+    .glass-card {
+      background: rgba(255,255,255,0.95);
+      border: 1px solid rgba(139,92,246,0.12);
+      border-radius: 12px;
+      box-shadow: 0 2px 20px rgba(0,0,0,0.04);
+    }
+    .glass-card-purple {
+      background: linear-gradient(135deg, rgba(139,92,246,0.05), rgba(124,58,237,0.02));
+      border: 1px solid rgba(139,92,246,0.15);
+      border-radius: 12px;
+    }
+    .step-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+      color: white;
+      font-weight: 700;
+      font-size: 0.9rem;
+      flex-shrink: 0;
+    }
+    .custom-table {
+      border-collapse: separate;
+      border-spacing: 0;
+      width: 100%;
+      font-size: 0.88rem;
+    }
+    .custom-table th {
+      background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+      color: white;
+      padding: 0.5rem 0.75rem;
+      text-align: left;
+      font-weight: 600;
+    }
+    .custom-table th:first-child { border-radius: 6px 0 0 0; }
+    .custom-table th:last-child { border-radius: 0 6px 0 0; }
+    .custom-table td {
+      padding: 0.5rem 0.75rem;
+      border-bottom: 1px solid #e2e8f0;
+      background: white;
+    }
+    .custom-table tr:last-child td:first-child { border-radius: 0 0 0 6px; }
+    .custom-table tr:last-child td:last-child { border-radius: 0 0 6px 0; }
+    .tag {
+      display: inline-block;
+      padding: 0.15rem 0.5rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 500;
+    }
+    .tag-purple { background: #ede9fe; color: #5b21b6; }
+    .tag-blue { background: #dbeafe; color: #1e40af; }
+    .tag-green { background: #d1fae5; color: #065f46; }
+    .tag-orange { background: #ffedd5; color: #9a3412; }
+    .page-num {
+      position: fixed;
+      bottom: 2vh;
+      left: 50%;
+      transform: translateX(-50%);
+      color: #94a3b8;
+      font-size: 0.8rem;
+      letter-spacing: 0.1em;
+      z-index: 40;
+    }
+    .progress-bar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      height: 3px;
+      background: linear-gradient(90deg, #8b5cf6, #7c3aed);
+      z-index: 100;
+      transition: width 0.5s ease;
+    }
+    .scroll-hint {
+      position: absolute;
+      bottom: 5vh;
+      left: 50%;
+      transform: translateX(-50%);
+      animation: bounce 2s infinite;
+      color: #8b5cf6;
+      font-size: 1.5rem;
+    }
+    @keyframes bounce {
+      0%, 20%, 50%, 80%, 100% { transform: translateX(-50%) translateY(0); }
+      40% { transform: translateX(-50%) translateY(-8px); }
+      60% { transform: translateX(-50%) translateY(-4px); }
+    }
+    .compact-text { font-size: 0.92rem; line-height: 1.5; }
+    .compact-title { font-size: 1.15rem; line-height: 1.3; }
+    .compact-code { font-size: 0.78rem; line-height: 1.45; padding: 0.6rem 0.8rem; }
+  </style>
+</head>
+<body>
+
+  <div class="progress-bar" id="progressBar" style="width: 10%"></div>
+
+  <div class="nav-dots" id="navDots">
+    <div class="nav-dot active" onclick="goToSlide(0)"></div>
+    <div class="nav-dot" onclick="goToSlide(1)"></div>
+    <div class="nav-dot" onclick="goToSlide(2)"></div>
+    <div class="nav-dot" onclick="goToSlide(3)"></div>
+    <div class="nav-dot" onclick="goToSlide(4)"></div>
+    <div class="nav-dot" onclick="goToSlide(5)"></div>
+    <div class="nav-dot" onclick="goToSlide(6)"></div>
+    <div class="nav-dot" onclick="goToSlide(7)"></div>
+    <div class="nav-dot" onclick="goToSlide(8)"></div>
+    <div class="nav-dot" onclick="goToSlide(9)"></div>
+  </div>
+
+  <div class="slide-container">
+    <div class="slides-wrapper" id="slidesWrapper">
+
+      <!-- ========== 第1页：封面 ========== -->
+      <section class="slide active">
+        <div class="text-center max-w-4xl mx-auto relative z-10">
+          <div class="fade-in-up mb-4">
+            <span class="tag tag-purple text-sm px-3 py-1">RHEL 7/8/9 网络管理</span>
+          </div>
+          <h1 class="fade-in-up delay-100 text-5xl font-black text-dark mb-4 tracking-tight leading-tight">
+            Linux <span class="text-violet-600">网络配置</span><br>与 SSH 服务
+          </h1>
+          <p class="fade-in-up delay-200 text-xl text-slate-600 mb-6 font-light">
+            NetworkManager · nmcli · 网卡绑定 · 远程安全登录
+          </p>
+          <div class="fade-in-up delay-300 flex justify-center gap-3 mb-8">
+            <div class="glass-card-purple px-4 py-3 flex items-center gap-2">
+              <div class="w-8 h-8 rounded-full bg-violet-100 flex items-center justify-center text-lg">🌐</div>
+              <span class="text-base font-medium text-slate-700">网络配置</span>
+            </div>
+            <div class="glass-card-purple px-4 py-3 flex items-center gap-2">
+              <div class="w-8 h-8 rounded-full bg-violet-100 flex items-center justify-center text-lg">📡</div>
+              <span class="text-base font-medium text-slate-700">网卡绑定</span>
+            </div>
+            <div class="glass-card-purple px-4 py-3 flex items-center gap-2">
+              <div class="w-8 h-8 rounded-full bg-violet-100 flex items-center justify-center text-lg">🔐</div>
+              <span class="text-base font-medium text-slate-700">SSH 安全</span>
+            </div>
+          </div>
+          <div class="fade-in-up delay-400 text-slate-400 text-base">
+            基于 RHEL / CentOS · NetworkManager 服务
+          </div>
+          <div class="scroll-hint fade-in-up delay-500">⌄</div>
+        </div>
+      </section>
+
+      <!-- ========== 第2页：主机名管理 ========== -->
+      <section class="slide">
+        <div class="max-w-5xl w-full mx-auto relative z-10 h-full flex flex-col justify-center">
+          <div class="fade-in-up mb-2">
+            <span class="text-violet-600 font-bold text-lg tracking-wider">01</span>
+            <span class="text-slate-400 text-base ml-2">/ 10</span>
+          </div>
+          <h2 class="fade-in-up delay-100 text-3xl font-bold text-dark mb-4">主机名管理：三种形式与三种方法</h2>
+
+          <div class="fade-in-up delay-200 grid grid-cols-2 gap-4">
+            <!-- 左侧：三种主机名 -->
+            <div class="space-y-3">
+              <div class="glass-card p-4">
+                <h3 class="compact-title font-bold text-dark mb-3">📝 三种主机名形式</h3>
+                <div class="space-y-2.5">
+                  <div class="flex gap-3 p-2.5 bg-violet-50 rounded-lg border-l-4 border-violet-500">
+                    <div class="flex-1">
+                      <div class="text-base font-bold text-dark">静态主机名（Static）</div>
+                      <p class="compact-text text-slate-600">存储于 <span class="font-mono text-violet-600">/etc/hostname</span>，系统启动时初始化，内核主机名</p>
+                    </div>
+                  </div>
+                  <div class="flex gap-3 p-2.5 bg-blue-50 rounded-lg border-l-4 border-blue-500">
+                    <div class="flex-1">
+                      <div class="text-base font-bold text-dark">瞬态主机名（Transient）</div>
+                      <p class="compact-text text-slate-600">运行时临时分配，由 DHCP/DNS 分配，如 <span class="font-mono">localhost</span></p>
+                    </div>
+                  </div>
+                  <div class="flex gap-3 p-2.5 bg-emerald-50 rounded-lg border-l-4 border-emerald-500">
+                    <div class="flex-1">
+                      <div class="text-base font-bold text-dark">灵活主机名（Pretty）</div>
+                      <p class="compact-text text-slate-600">UTF-8 格式自由主机名，展示给终端用户，可含特殊字符</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="glass-card p-3 bg-slate-50">
+                <h4 class="text-sm font-bold text-dark mb-1">💡 关键服务</h4>
+                <p class="compact-text text-slate-700">
+                  修改静态主机名后需重启 <span class="font-mono text-violet-600">systemd-hostnamed</span> 服务，使 hostnamectl 识别变更。
+                </p>
+              </div>
+            </div>
+
+            <!-- 右侧：三种配置方法 -->
+            <div class="space-y-2.5">
+              <div class="code-block compact-code">
+                <span class="comment"># 方法一：nmtui 图形文本界面</span><br>
+                <span class="cmd">nmtui</span> <span class="comment"># 选择 "Set system hostname"</span><br>
+                <span class="cmd">systemctl</span> <span class="arg">restart</span> systemd-hostnamed<br><br>
+
+                <span class="comment"># 方法二：hostnamectl 命令（推荐）</span><br>
+                <span class="cmd">hostnamectl</span> <span class="arg">status</span> <span class="comment"># 查看当前主机名</span><br>
+                <span class="cmd">hostnamectl</span> <span class="arg">set-hostname</span> <span class="string">my.smile.com</span><br><br>
+
+                <span class="comment"># 方法三：nmcli 命令行</span><br>
+                <span class="cmd">nmcli</span> <span class="arg">general</span> hostname <span class="comment"># 查看</span><br>
+                <span class="cmd">nmcli</span> <span class="arg">general</span> hostname <span class="string">RHEL7-1</span> <span class="comment"># 设置</span><br>
+                <span class="cmd">systemctl</span> <span class="arg">restart</span> systemd-hostnamed
+              </div>
+              <div class="glass-card p-3">
+                <h4 class="text-sm font-bold text-dark mb-2">📋 nmcli 与配置文件对应关系</h4>
+                <div class="grid grid-cols-2 gap-2 compact-text text-slate-700">
+                  <div class="p-2 bg-violet-50 rounded border border-violet-100">
+                    <span class="font-mono text-violet-700 text-xs">nmcli general hostname</span>
+                    <div class="text-xs text-slate-500 mt-0.5">/etc/hostname</div>
+                  </div>
+                  <div class="p-2 bg-violet-50 rounded border border-violet-100">
+                    <span class="font-mono text-violet-700 text-xs">ipv4.method manual</span>
+                    <div class="text-xs text-slate-500 mt-0.5">BOOTPROTO=none</div>
+                  </div>
+                  <div class="p-2 bg-violet-50 rounded border border-violet-100">
+                    <span class="font-mono text-violet-700 text-xs">ipv4.addresses</span>
+                    <div class="text-xs text-slate-500 mt-0.5">IPADDR + PREFIX</div>
+                  </div>
+                  <div class="p-2 bg-violet-50 rounded border border-violet-100">
+                    <span class="font-mono text-violet-700 text-xs">connection.autoconnect</span>
+                    <div class="text-xs text-slate-500 mt-0.5">ONBOOT=yes</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========== 第3页：网络配置四种方法 ========== -->
+      <section class="slide">
+        <div class="max-w-5xl w-full mx-auto relative z-10 h-full flex flex-col justify-center">
+          <div class="fade-in-up mb-2">
+            <span class="text-violet-600 font-bold text-lg tracking-wider">02</span>
+            <span class="text-slate-400 text-base ml-2">/ 10</span>
+          </div>
+          <h2 class="fade-in-up delay-100 text-3xl font-bold text-dark mb-4">网络配置：四种方法对比</h2>
+
+          <div class="fade-in-up delay-200 grid grid-cols-4 gap-3">
+            <div class="glass-card p-3 hover:shadow-lg transition-shadow border-t-4 border-violet-500">
+              <div class="text-2xl mb-2">🖱️</div>
+              <h3 class="text-base font-bold text-dark mb-1">系统菜单</h3>
+              <p class="compact-text text-slate-600 mb-2">桌面右上角网络图标 → 有线设置 → 配置 IPv4</p>
+              <div class="tag tag-purple text-xs">图形界面 · 最简单</div>
+            </div>
+            <div class="glass-card p-3 hover:shadow-lg transition-shadow border-t-4 border-blue-500">
+              <div class="text-2xl mb-2">📄</div>
+              <h3 class="text-base font-bold text-dark mb-1">网卡配置文件</h3>
+              <p class="compact-text text-slate-600 mb-2">
+                <span class="font-mono text-xs">/etc/sysconfig/network-scripts/ifcfg-ens33</span>
+              </p>
+              <div class="tag tag-blue text-xs">传统方式 · RHEL7+不推荐</div>
+            </div>
+            <div class="glass-card p-3 hover:shadow-lg transition-shadow border-t-4 border-emerald-500">
+              <div class="text-2xl mb-2">🖥️</div>
+              <h3 class="text-base font-bold text-dark mb-1">nmtui 文本图形</h3>
+              <p class="compact-text text-slate-600 mb-2">命令行下的伪图形界面，适合无桌面环境远程配置</p>
+              <div class="tag tag-green text-xs">无桌面首选</div>
+            </div>
+            <div class="glass-card p-3 hover:shadow-lg transition-shadow border-t-4 border-orange-500">
+              <div class="text-2xl mb-2">⌨️</div>
+              <h3 class="text-base font-bold text-dark mb-1">nmcli 命令行</h3>
+              <p class="compact-text text-slate-600 mb-2">功能最强大，支持脚本自动化，RHEL 推荐标准方式</p>
+              <div class="tag tag-orange text-xs">企业标准 · 最强大</div>
+            </div>
+          </div>
+
+          <div class="fade-in-up delay-300 mt-3 glass-card p-4">
+            <h3 class="compact-title font-bold text-dark mb-2">📄 网卡配置文件关键参数（了解即可，RHEL7+推荐 nmcli）</h3>
+            <div class="code-block compact-code">
+              <span class="comment"># /etc/sysconfig/network-scripts/ifcfg-ens33</span><br>
+              <span class="cmd">TYPE</span>=Ethernet<br>
+              <span class="cmd">BOOTPROTO</span>=static <span class="comment"># none/dhcp</span><br>
+              <span class="cmd">NAME</span>=ens33<br>
+              <span class="cmd">DEVICE</span>=ens33<br>
+              <span class="cmd">ONBOOT</span>=yes<br>
+              <span class="cmd">IPADDR</span>=192.168.10.1<br>
+              <span class="cmd">NETMASK</span>=255.255.255.0<br>
+              <span class="cmd">GATEWAY</span>=192.168.10.1<br>
+              <span class="cmd">DNS1</span>=192.168.10.1
+            </div>
+            <p class="compact-text text-slate-500 mt-2">
+              ⚠️ 注意：RHEL 7 以后 network 服务已被 NetworkManager 替代，建议使用 nmcli 而非直接编辑配置文件。
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========== 第4页：nmcli深度解析 ========== -->
+      <section class="slide">
+        <div class="max-w-5xl w-full mx-auto relative z-10 h-full flex flex-col justify-center">
+          <div class="fade-in-up mb-2">
+            <span class="text-violet-600 font-bold text-lg tracking-wider">03</span>
+            <span class="text-slate-400 text-base ml-2">/ 10</span>
+          </div>
+          <h2 class="fade-in-up delay-100 text-3xl font-bold text-dark mb-4">nmcli 命令深度解析</h2>
+
+          <div class="fade-in-up delay-200 grid grid-cols-2 gap-4">
+            <!-- 左侧：常用命令 -->
+            <div class="space-y-2.5">
+              <div class="glass-card p-4">
+                <h3 class="compact-title font-bold text-dark mb-2">🔍 常用查询命令</h3>
+                <div class="code-block compact-code space-y-0.5">
+                  <span class="cmd">nmcli</span> <span class="arg">connection</span> show <span class="comment"># 显示所有连接</span><br>
+                  <span class="cmd">nmcli</span> <span class="arg">connection</span> show <span class="arg">--active</span> <span class="comment"># 活动连接</span><br>
+                  <span class="cmd">nmcli</span> <span class="arg">device</span> status <span class="comment"># 设备状态</span><br>
+                  <span class="cmd">nmcli</span> <span class="arg">device</span> show ens33 <span class="comment"># 网卡属性</span><br>
+                  <span class="cmd">nmcli</span> <span class="arg">connection</span> reload <span class="comment"># 重载配置</span><br>
+                  <span class="cmd">nmcli</span> <span class="arg">connection</span> up/down <span class="string">test2</span> <span class="comment"># 启用/禁用</span>
+                </div>
+              </div>
+              <div class="glass-card p-4">
+                <h3 class="compact-title font-bold text-dark mb-2">✏️ 修改连接配置</h3>
+                <div class="code-block compact-code space-y-0.5">
+                  <span class="comment"># 设置为自动启动</span><br>
+                  <span class="cmd">nmcli</span> <span class="arg">connection modify</span> test2 <span class="arg">connection.autoconnect</span> yes<br><br>
+                  <span class="comment"># 修改/添加/删除 DNS</span><br>
+                  <span class="cmd">nmcli</span> <span class="arg">connection modify</span> test2 <span class="arg">ipv4.dns</span> <span class="string">192.168.10.1</span><br>
+                  <span class="cmd">nmcli</span> <span class="arg">connection modify</span> test2 <span class="arg">+ipv4.dns</span> <span class="string">114.114.114.114</span><br>
+                  <span class="cmd">nmcli</span> <span class="arg">connection modify</span> test2 <span class="arg">-ipv4.dns</span> <span class="string">114.114.114.114</span><br><br>
+                  <span class="comment"># 修改 IP 和网关</span><br>
+                  <span class="cmd">nmcli</span> <span class="arg">connection modify</span> test2 <span class="arg">ipv4.addresses</span> <span class="string">192.168.10.200/24</span> <span class="arg">gw4</span> <span class="string">192.168.10.254</span><br>
+                  <span class="cmd">nmcli</span> <span class="arg">connection modify</span> test2 <span class="arg">+ipv4.addresses</span> <span class="string">192.168.10.250/24</span> <span class="comment"># 辅助 IP</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 右侧：创建连接 -->
+            <div class="space-y-2.5">
+              <div class="glass-card p-4">
+                <h3 class="compact-title font-bold text-dark mb-2">➕ 创建新连接</h3>
+                <div class="code-block compact-code space-y-0.5">
+                  <span class="comment"># 1. DHCP 自动获取</span><br>
+                  <span class="cmd">nmcli</span> <span class="arg">connection add</span> <span class="arg">con-name</span> default <span class="arg">type</span> Ethernet <span class="arg">ifname</span> ens33<br><br>
+
+                  <span class="comment"># 2. 静态 IP 配置</span><br>
+                  <span class="cmd">nmcli</span> <span class="arg">connection add</span> <span class="arg">con-name</span> test2 <span class="arg">type</span> Ethernet <span class="arg">ifname</span> ens33 \<br>
+                  &nbsp;&nbsp;<span class="arg">ipv4.method</span> manual \<br>
+                  &nbsp;&nbsp;<span class="arg">ipv4.addresses</span> <span class="string">192.168.10.100/24</span> \<br>
+                  &nbsp;&nbsp;<span class="arg">gw4</span> <span class="string">192.168.10.1</span> \<br>
+                  &nbsp;&nbsp;<span class="arg">autoconnect</span> no<br><br>
+
+                  <span class="comment"># 3. 启用连接并验证</span><br>
+                  <span class="cmd">nmcli</span> <span class="arg">connection up</span> test2<br>
+                  <span class="cmd">nmcli</span> <span class="arg">device</span> show ens33<br><br>
+
+                  <span class="comment"># 4. 删除连接</span><br>
+                  <span class="cmd">nmcli</span> <span class="arg">connection delete</span> test2
+                </div>
+              </div>
+              <div class="glass-card p-3 bg-violet-50 border-violet-200">
+                <h4 class="text-sm font-bold text-violet-900 mb-1">💡 核心概念：连接 vs 设备</h4>
+                <p class="compact-text text-violet-800">
+                  <strong>设备（Device）</strong>：物理/虚拟网卡（ens33），由内核管理。<br>
+                  <strong>连接（Connection）</strong>：对网卡的配置集合。一个网卡可有多个连接，但同时仅一个生效。
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========== 第5页：网络会话 ========== -->
+      <section class="slide">
+        <div class="max-w-5xl w-full mx-auto relative z-10 h-full flex flex-col justify-center">
+          <div class="fade-in-up mb-2">
+            <span class="text-violet-600 font-bold text-lg tracking-wider">04</span>
+            <span class="text-slate-400 text-base ml-2">/ 10</span>
+          </div>
+          <h2 class="fade-in-up delay-100 text-3xl font-bold text-dark mb-4">网络会话：场景快速切换</h2>
+
+          <div class="fade-in-up delay-200 grid grid-cols-2 gap-4">
+            <!-- 左侧：概念与场景 -->
+            <div class="space-y-3">
+              <div class="glass-card p-4">
+                <h3 class="compact-title font-bold text-dark mb-2">🎯 什么是网络会话？</h3>
+                <p class="compact-text text-slate-700 mb-3">
+                  RHEL/CentOS 系统支持<strong>网络会话（Network Session）</strong>功能，允许用户在多个配置文件中快速切换，非常类似于 firewalld 的区域技术。
+                </p>
+                <div class="space-y-2">
+                  <div class="flex items-center gap-3 p-2.5 bg-violet-50 rounded-lg">
+                    <span class="text-xl">🏢</span>
+                    <div>
+                      <div class="text-sm font-bold text-dark">公司网络（company）</div>
+                      <div class="compact-text text-slate-600">静态 IP：192.168.10.1/24，固定网关 DNS</div>
+                    </div>
+                  </div>
+                  <div class="flex items-center gap-3 p-2.5 bg-emerald-50 rounded-lg">
+                    <span class="text-xl">🏠</span>
+                    <div>
+                      <div class="text-sm font-bold text-dark">家庭网络（home）</div>
+                      <div class="compact-text text-slate-600">DHCP 自动获取，动态 IP</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="glass-card p-3 bg-slate-50">
+                <h4 class="text-sm font-bold text-dark mb-1">⚡ 优势</h4>
+                <ul class="compact-text text-slate-700 list-disc list-inside space-y-0.5">
+                  <li>不同场景一键切换网络配置</li>
+                  <li>配置永久生效，重启后仍然保留</li>
+                  <li>无需手动修改 IP，避免出错</li>
+                </ul>
+              </div>
+            </div>
+
+            <!-- 右侧：操作命令 -->
+            <div class="space-y-2.5">
+              <div class="code-block compact-code">
+                <span class="comment"># 1. 创建公司网络会话（静态 IP）</span><br>
+                <span class="cmd">nmcli</span> <span class="arg">connection add</span> <span class="arg">con-name</span> company <span class="arg">ifname</span> ens33 \<br>
+                &nbsp;&nbsp;<span class="arg">autoconnect</span> no <span class="arg">type</span> ethernet \<br>
+                &nbsp;&nbsp;<span class="arg">ip4</span> <span class="string">192.168.10.1/24</span> <span class="arg">gw4</span> <span class="string">192.168.10.1</span><br><br>
+
+                <span class="comment"># 2. 创建家庭网络会话（DHCP）</span><br>
+                <span class="cmd">nmcli</span> <span class="arg">connection add</span> <span class="arg">con-name</span> home <span class="arg">type</span> ethernet <span class="arg">ifname</span> ens33<br><br>
+
+                <span class="comment"># 3. 查看所有会话</span><br>
+                <span class="cmd">nmcli</span> <span class="arg">connection show</span><br><br>
+
+                <span class="comment"># 4. 切换会话（下班回到家）</span><br>
+                <span class="cmd">nmcli</span> <span class="arg">connection down</span> company<br>
+                <span class="cmd">nmcli</span> <span class="arg">connection up</span> home<br>
+                <span class="cmd">ifconfig</span> <span class="comment"># 验证 IP 已变为 DHCP 获取</span><br><br>
+
+                <span class="comment"># 5. 切回公司网络</span><br>
+                <span class="cmd">nmcli</span> <span class="arg">connection down</span> home<br>
+                <span class="cmd">nmcli</span> <span class="arg">connection up</span> company
+              </div>
+              <div class="glass-card p-3">
+                <h4 class="text-sm font-bold text-dark mb-1">📂 配置文件位置</h4>
+                <p class="compact-text text-slate-700 font-mono">
+                  /etc/sysconfig/network-scripts/ifcfg-company<br>
+                  /etc/sysconfig/network-scripts/ifcfg-home
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========== 第6页：双网卡绑定 ========== -->
+      <section class="slide">
+        <div class="max-w-5xl w-full mx-auto relative z-10 h-full flex flex-col justify-center">
+          <div class="fade-in-up mb-2">
+            <span class="text-violet-600 font-bold text-lg tracking-wider">05</span>
+            <span class="text-slate-400 text-base ml-2">/ 10</span>
+          </div>
+          <h2 class="fade-in-up delay-100 text-3xl font-bold text-dark mb-4">双网卡绑定：负载均衡与高可用</h2>
+
+          <div class="fade-in-up delay-200 grid grid-cols-5 gap-4">
+            <!-- 左侧：原理 -->
+            <div class="col-span-2 space-y-3">
+              <div class="glass-card p-4">
+                <h3 class="compact-title font-bold text-dark mb-2">🔗 网卡绑定（Bonding）技术</h3>
+                <p class="compact-text text-slate-700 mb-3">
+                  将多块物理网卡绑定为一块逻辑网卡，实现<strong>网络传输速度提升</strong>和<strong>高可用冗余</strong>。即使一块网卡故障，另一块自动顶替，保证业务不中断。
+                </p>
+                <div class="space-y-2">
+                  <div class="p-2.5 bg-violet-50 rounded-lg border border-violet-100">
+                    <div class="text-sm font-bold text-violet-900">mode0 - balance-rr</div>
+                    <div class="compact-text text-violet-800">轮询策略，依次传输，负载均衡</div>
+                  </div>
+                  <div class="p-2.5 bg-violet-50 rounded-lg border border-violet-100">
+                    <div class="text-sm font-bold text-violet-900">mode1 - active-backup</div>
+                    <div class="compact-text text-violet-800">主备策略，一块故障另一块接管</div>
+                  </div>
+                  <div class="p-2.5 bg-violet-100 rounded-lg border border-violet-300">
+                    <div class="text-sm font-bold text-violet-900">mode6 - balance-alb</div>
+                    <div class="compact-text text-violet-800">适配器负载均衡，无需交换机支持 ⭐推荐</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 右侧：配置步骤 -->
+            <div class="col-span-3 space-y-2">
+              <div class="code-block compact-code">
+                <span class="comment"># 步骤 1：创建 bond0 接口（mode6）</span><br>
+                <span class="cmd">nmcli</span> <span class="arg">connection add</span> <span class="arg">type</span> bond <span class="arg">con-name</span> bond0 <span class="arg">ifname</span> bond0 <span class="arg">mode</span> balance-alb<br><br>
+
+                <span class="comment"># 步骤 2：为 bond0 配置 IP</span><br>
+                <span class="cmd">nmcli</span> <span class="arg">connection modify</span> bond0 <span class="arg">ipv4.addresses</span> <span class="string">192.168.10.1/24</span><br>
+                <span class="cmd">nmcli</span> <span class="arg">connection modify</span> bond0 <span class="arg">ipv4.method</span> manual<br>
+                <span class="cmd">nmcli</span> <span class="arg">connection modify</span> bond0 <span class="arg">ipv4.gateway</span> <span class="string">192.168.10.1</span><br><br>
+
+                <span class="comment"># 步骤 3：将 ens33 和 ens37 加入 bond0</span><br>
+                <span class="cmd">nmcli</span> <span class="arg">connection add</span> <span class="arg">type</span> ethernet <span class="arg">con-name</span> slave1 <span class="arg">ifname</span> ens33 <span class="arg">master</span> bond0<br>
+                <span class="cmd">nmcli</span> <span class="arg">connection add</span> <span class="arg">type</span> ethernet <span class="arg">con-name</span> slave2 <span class="arg">ifname</span> ens37 <span class="arg">master</span> bond0<br><br>
+
+                <span class="comment"># 步骤 4：启用绑定</span><br>
+                <span class="cmd">nmcli</span> <span class="arg">connection up</span> bond0<br>
+                <span class="cmd">nmcli</span> <span class="arg">connection up</span> slave1<br>
+                <span class="cmd">nmcli</span> <span class="arg">connection up</span> slave2<br><br>
+
+                <span class="comment"># 验证</span><br>
+                <span class="cmd">cat</span> /proc/net/bonding/bond0 <span class="comment"># 查看绑定状态</span>
+              </div>
+              <div class="glass-card p-3 bg-violet-50 border-violet-200">
+                <h4 class="text-sm font-bold text-violet-900 mb-1">💡 生产环境意义</h4>
+                <p class="compact-text text-violet-800">
+                  7×24 小时服务必须保证网络高可用。mode6 无需交换机做链路聚合配置，兼容性最强，是服务器多网卡场景的首选方案。
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========== 第7页：SSH基础 ========== -->
+      <section class="slide">
+        <div class="max-w-5xl w-full mx-auto relative z-10 h-full flex flex-col justify-center">
+          <div class="fade-in-up mb-2">
+            <span class="text-violet-600 font-bold text-lg tracking-wider">06</span>
+            <span class="text-slate-400 text-base ml-2">/ 10</span>
+          </div>
+          <h2 class="fade-in-up delay-100 text-3xl font-bold text-dark mb-4">SSH 服务基础与配置文件</h2>
+
+          <div class="fade-in-up delay-200 grid grid-cols-2 gap-4">
+            <!-- 左侧：SSH概述 -->
+            <div class="space-y-3">
+              <div class="glass-card p-4">
+                <h3 class="compact-title font-bold text-dark mb-2">🔐 SSH（Secure Shell）</h3>
+                <p class="compact-text text-slate-700 mb-3">
+                  以加密方式提供远程登录的协议，是目前远程管理 Linux 系统的<strong>首选方式</strong>。sshd 是基于 SSH 协议开发的远程管理服务程序。
+                </p>
+                <div class="grid grid-cols-2 gap-2">
+                  <div class="p-2.5 bg-violet-50 rounded-lg border border-violet-100">
+                    <div class="text-sm font-bold text-violet-900 mb-1">🔑 基于口令</div>
+                    <div class="compact-text text-violet-800">账户 + 密码验证，简单但存在暴力破解风险</div>
+                  </div>
+                  <div class="p-2.5 bg-emerald-50 rounded-lg border border-emerald-100">
+                    <div class="text-sm font-bold text-emerald-900 mb-1">🛡️ 基于密钥</div>
+                    <div class="compact-text text-emerald-800">公钥/私钥对验证，安全性高，推荐生产环境使用</div>
+                  </div>
+                </div>
+              </div>
+              <div class="glass-card p-3 bg-slate-50">
+                <h4 class="text-sm font-bold text-dark mb-1">📂 关键文件</h4>
+                <div class="compact-text text-slate-700 font-mono space-y-0.5">
+                  <div>/etc/ssh/sshd_config <span class="text-slate-500"># 服务端配置</span></div>
+                  <div>/etc/ssh/ssh_host_* <span class="text-slate-500"># 主机密钥</span></div>
+                  <div>~/.ssh/id_rsa <span class="text-slate-500"># 客户端私钥</span></div>
+                  <div>~/.ssh/id_rsa.pub <span class="text-slate-500"># 客户端公钥</span></div>
+                  <div>~/.ssh/authorized_keys <span class="text-slate-500"># 服务端授权公钥</span></div>
+                  <div>~/.ssh/known_hosts <span class="text-slate-500"># 已知主机指纹</span></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 右侧：配置文件参数 -->
+            <div class="space-y-2.5">
+              <div class="glass-card p-4">
+                <h3 class="compact-title font-bold text-dark mb-2">⚙️ sshd_config 核心参数</h3>
+                <table class="custom-table">
+                  <thead>
+                    <tr>
+                      <th>参数</th>
+                      <th>作用</th>
+                    </tr>
+                  </thead>
+                  <tbody class="compact-text">
+                    <tr>
+                      <td class="font-mono text-violet-700">Port 22</td>
+                      <td>默认 SSH 服务端口</td>
+                    </tr>
+                    <tr>
+                      <td class="font-mono text-violet-700">ListenAddress 0.0.0.0</td>
+                      <td>监听所有 IP 地址</td>
+                    </tr>
+                    <tr>
+                      <td class="font-mono text-violet-700">Protocol 2</td>
+                      <td>SSH 协议版本号（仅 v2）</td>
+                    </tr>
+                    <tr>
+                      <td class="font-mono text-violet-700">PermitRootLogin yes</td>
+                      <td>是否允许 root 直接登录</td>
+                    </tr>
+                    <tr>
+                      <td class="font-mono text-violet-700">PasswordAuthentication yes</td>
+                      <td>是否允许密码验证</td>
+                    </tr>
+                    <tr>
+                      <td class="font-mono text-violet-700">PermitEmptyPasswords no</td>
+                      <td>禁止空密码登录</td>
+                    </tr>
+                    <tr>
+                      <td class="font-mono text-violet-700">MaxAuthTries 6</td>
+                      <td>最大密码尝试次数</td>
+                    </tr>
+                    <tr>
+                      <td class="font-mono text-violet-700">MaxSessions 10</td>
+                      <td>最大并发终端数</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="code-block compact-code">
+                <span class="comment"># 重启与开机自启 sshd</span><br>
+                <span class="cmd">systemctl</span> <span class="arg">restart</span> sshd<br>
+                <span class="cmd">systemctl</span> <span class="arg">enable</span> sshd<br><br>
+                <span class="comment"># 基本远程登录</span><br>
+                <span class="cmd">ssh</span> <span class="string">192.168.10.1</span> <span class="comment"># 默认 root 登录</span><br>
+                <span class="cmd">ssh</span> <span class="string">student@192.168.10.1</span> <span class="comment"># 指定用户</span><br>
+                <span class="cmd">ssh</span> <span class="arg">-p</span> <span class="string">2222</span> <span class="string">admin@192.168.10.1</span> <span class="comment"># 非标准端口</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========== 第8页：SSH密钥配置 ========== -->
+      <section class="slide">
+        <div class="max-w-5xl w-full mx-auto relative z-10 h-full flex flex-col justify-center">
+          <div class="fade-in-up mb-2">
+            <span class="text-violet-600 font-bold text-lg tracking-wider">07</span>
+            <span class="text-slate-400 text-base ml-2">/ 10</span>
+          </div>
+          <h2 class="fade-in-up delay-100 text-3xl font-bold text-dark mb-4">SSH 密钥验证配置流程</h2>
+
+          <div class="fade-in-up delay-200 grid grid-cols-5 gap-4">
+            <!-- 左侧：流程图 -->
+            <div class="col-span-2 space-y-2">
+              <div class="glass-card p-4">
+                <h3 class="compact-title font-bold text-dark mb-3">🔄 配置流程</h3>
+                <div class="space-y-2">
+                  <div class="flex gap-3 items-start">
+                    <div class="step-badge">1</div>
+                    <div>
+                      <div class="text-sm font-bold text-dark">服务端创建用户</div>
+                      <div class="compact-text text-slate-600">useradd + passwd 设置密码</div>
+                    </div>
+                  </div>
+                  <div class="flex gap-3 items-start">
+                    <div class="step-badge">2</div>
+                    <div>
+                      <div class="text-sm font-bold text-dark">客户端生成密钥对</div>
+                      <div class="compact-text text-slate-600">ssh-keygen 生成 id_rsa + id_rsa.pub</div>
+                    </div>
+                  </div>
+                  <div class="flex gap-3 items-start">
+                    <div class="step-badge">3</div>
+                    <div>
+                      <div class="text-sm font-bold text-dark">上传公钥到服务端</div>
+                      <div class="compact-text text-slate-600">ssh-copy-id 将公钥写入 authorized_keys</div>
+                    </div>
+                  </div>
+                  <div class="flex gap-3 items-start">
+                    <div class="step-badge">4</div>
+                    <div>
+                      <div class="text-sm font-bold text-dark">服务端禁用密码登录</div>
+                      <div class="compact-text text-slate-600">PasswordAuthentication no，仅允许密钥</div>
+                    </div>
+                  </div>
+                  <div class="flex gap-3 items-start">
+                    <div class="step-badge">5</div>
+                    <div>
+                      <div class="text-sm font-bold text-dark">客户端免密登录</div>
+                      <div class="compact-text text-slate-600">ssh user@host 无需输入密码</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="glass-card p-3 bg-emerald-50 border-emerald-200">
+                <h4 class="text-sm font-bold text-emerald-900 mb-1">✅ 安全优势</h4>
+                <ul class="compact-text text-emerald-800 list-disc list-inside space-y-0.5">
+                  <li>避免密码在网络传输中被嗅探</li>
+                  <li>杜绝暴力破解密码攻击</li>
+                  <li>可配合 SSH 代理实现单点登录</li>
+                </ul>
+              </div>
+            </div>
+
+            <!-- 右侧：命令实操 -->
+            <div class="col-span-3 space-y-2">
+              <div class="code-block compact-code">
+                <span class="comment"># 步骤 1：服务端创建用户（RHEL7-1）</span><br>
+                <span class="cmd">useradd</span> student<br>
+                <span class="cmd">passwd</span> student<br><br>
+
+                <span class="comment"># 步骤 2：客户端生成密钥对（RHEL7-2）</span><br>
+                <span class="cmd">ssh-keygen</span> <span class="comment"># 默认路径 ~/.ssh/id_rsa，可设密钥密码</span><br>
+                <span class="cmd">cat</span> ~/.ssh/id_rsa.pub <span class="comment"># 查看公钥内容</span><br><br>
+
+                <span class="comment"># 步骤 3：上传公钥到服务端</span><br>
+                <span class="cmd">ssh-copy-id</span> <span class="string">student@192.168.10.1</span><br>
+                <span class="comment"># 输入 student 密码后，公钥自动写入 /home/student/.ssh/authorized_keys</span><br><br>
+
+                <span class="comment"># 步骤 4：服务端禁用密码登录（仅密钥）</span><br>
+                <span class="cmd">vim</span> /etc/ssh/sshd_config<br>
+                <span class="comment"># 修改：PasswordAuthentication no</span><br>
+                <span class="comment"># 可选：PermitRootLogin no（禁止 root 远程登录）</span><br>
+                <span class="cmd">systemctl</span> <span class="arg">restart</span> sshd<br><br>
+
+                <span class="comment"># 步骤 5：客户端免密登录测试</span><br>
+                <span class="cmd">ssh</span> <span class="string">student@192.168.10.1</span> <span class="comment"># 无需密码直接进入</span>
+              </div>
+              <div class="grid grid-cols-2 gap-2">
+                <div class="glass-card p-2">
+                  <h4 class="text-xs font-bold text-dark mb-1">🔍 验证公钥已上传</h4>
+                  <div class="code-block compact-code !p-1.5 !text-xs">
+                    <span class="cmd">cat</span> /home/student/.ssh/authorized_keys
+                  </div>
+                </div>
+                <div class="glass-card p-2">
+                  <h4 class="text-xs font-bold text-dark mb-1">⚠️ 恢复密码登录</h4>
+                  <div class="code-block compact-code !p-1.5 !text-xs">
+                    <span class="comment"># PasswordAuthentication yes</span><br>
+                    <span class="cmd">systemctl</span> <span class="arg">restart</span> sshd
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========== 第9页：远程传输与实用技巧 ========== -->
+      <section class="slide">
+        <div class="max-w-5xl w-full mx-auto relative z-10 h-full flex flex-col justify-center">
+          <div class="fade-in-up mb-2">
+            <span class="text-violet-600 font-bold text-lg tracking-wider">08</span>
+            <span class="text-slate-400 text-base ml-2">/ 10</span>
+          </div>
+          <h2 class="fade-in-up delay-100 text-3xl font-bold text-dark mb-4">远程传输命令与 SSH 实用技巧</h2>
+
+          <div class="fade-in-up delay-200 grid grid-cols-2 gap-4">
+            <!-- 左侧：scp -->
+            <div class="space-y-3">
+              <div class="glass-card p-4">
+                <h3 class="compact-title font-bold text-dark mb-2">📤 scp 安全远程传输</h3>
+                <p class="compact-text text-slate-700 mb-2">
+                  基于 SSH 协议的网络文件传输命令，加密传输数据，格式：
+                </p>
+                <div class="code-block compact-code mb-2">
+                  scp [参数] 本地文件 远程账户@远程IP:远程目录
+                </div>
+                <div class="space-y-1.5 compact-text text-slate-700">
+                  <div class="flex items-start gap-2">
+                    <span class="text-violet-600 font-bold">▸</span>
+                    <span><strong>上传文件</strong>：<span class="font-mono text-xs">scp /local/file.txt root@192.168.10.1:/root/</span></span>
+                  </div>
+                  <div class="flex items-start gap-2">
+                    <span class="text-violet-600 font-bold">▸</span>
+                    <span><strong>下载文件</strong>：<span class="font-mono text-xs">scp root@192.168.10.1:/root/file.txt /local/</span></span>
+                  </div>
+                  <div class="flex items-start gap-2">
+                    <span class="text-violet-600 font-bold">▸</span>
+                    <span><strong>上传目录</strong>：<span class="font-mono text-xs">scp -r /local/dir/ root@192.168.10.1:/root/</span></span>
+                  </div>
+                  <div class="flex items-start gap-2">
+                    <span class="text-violet-600 font-bold">▸</span>
+                    <span><strong>指定端口</strong>：<span class="font-mono text-xs">scp -P 2222 file.txt root@host:/path/</span></span>
+                  </div>
+                </div>
+              </div>
+              <div class="glass-card p-3 bg-violet-50 border-violet-200">
+                <h4 class="text-sm font-bold text-violet-900 mb-1">🆚 scp vs rsync</h4>
+                <p class="compact-text text-violet-800">
+                  scp 简单直接，适合小文件；rsync 支持增量传输、断点续传，适合大文件或目录同步。
+                </p>
+              </div>
+            </div>
+
+            <!-- 右侧：实用技巧 -->
+            <div class="space-y-2.5">
+              <div class="glass-card p-4">
+                <h3 class="compact-title font-bold text-dark mb-2">🛠️ SSH 实用技巧</h3>
+                <div class="code-block compact-code space-y-0.5">
+                  <span class="comment"># 1. 禁止 root 远程登录（安全加固）</span><br>
+                  <span class="cmd">vim</span> /etc/ssh/sshd_config<br>
+                  <span class="cmd">PermitRootLogin</span> no<br>
+                  <span class="cmd">systemctl</span> <span class="arg">restart</span> sshd<br><br>
+
+                  <span class="comment"># 2. 修改默认端口（防扫描）</span><br>
+                  <span class="cmd">Port</span> <span class="string">2222</span> <span class="comment"># 修改后需防火墙放行新端口</span><br><br>
+
+                  <span class="comment"># 3. 仅监听内网地址</span><br>
+                  <span class="cmd">ListenAddress</span> <span class="string">192.168.10.1</span><br><br>
+
+                  <span class="comment"># 4. 使用 SSH 代理转发（跳板机）</span><br>
+                  <span class="cmd">ssh</span> <span class="arg">-A</span> <span class="string">jump@bastion.host</span> <span class="comment"># 代理密钥转发</span><br><br>
+
+                  <span class="comment"># 5. 本地端口转发（隧道）</span><br>
+                  <span class="cmd">ssh</span> <span class="arg">-L</span> <span class="string">3306:localhost:3306</span> <span class="string">user@remote</span> <span class="comment"># 将远程 MySQL 映射到本地</span>
+                </div>
+              </div>
+              <div class="glass-card p-3">
+                <h4 class="text-sm font-bold text-dark mb-1">🔥 安全最佳实践</h4>
+                <div class="grid grid-cols-2 gap-2 compact-text text-slate-700">
+                  <div class="flex items-center gap-1.5">
+                    <span class="text-emerald-500">✓</span> 禁用 root 密码登录
+                  </div>
+                  <div class="flex items-center gap-1.5">
+                    <span class="text-emerald-500">✓</span> 使用密钥验证
+                  </div>
+                  <div class="flex items-center gap-1.5">
+                    <span class="text-emerald-500">✓</span> 修改默认 22 端口
+                  </div>
+                  <div class="flex items-center gap-1.5">
+                    <span class="text-emerald-500">✓</span> 启用防火墙限制来源 IP
+                  </div>
+                  <div class="flex items-center gap-1.5">
+                    <span class="text-emerald-500">✓</span> 设置 MaxAuthTries 限制
+                  </div>
+                  <div class="flex items-center gap-1.5">
+                    <span class="text-emerald-500">✓</span> 定期更换密钥对
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========== 第10页：总结 ========== -->
+      <section class="slide">
+        <div class="max-w-4xl w-full mx-auto relative z-10 h-full flex flex-col justify-center text-center">
+          <div class="fade-in-up mb-2">
+            <span class="text-violet-600 font-bold text-lg tracking-wider">09</span>
+            <span class="text-slate-400 text-base ml-2">/ 10</span>
+          </div>
+          <h2 class="fade-in-up delay-100 text-3xl font-bold text-dark mb-6">项目 6 知识总结</h2>
+
+          <div class="fade-in-up delay-200 grid grid-cols-4 gap-3 mb-6">
+            <div class="glass-card p-3 hover:shadow-lg transition-shadow">
+              <div class="w-10 h-10 mx-auto mb-2 rounded-full bg-violet-100 flex items-center justify-center text-xl">📝</div>
+              <h3 class="text-base font-bold text-dark mb-1">主机名</h3>
+              <p class="compact-text text-slate-600">static / transient / pretty<br>hostnamectl / nmcli / nmtui</p>
+            </div>
+            <div class="glass-card p-3 hover:shadow-lg transition-shadow">
+              <div class="w-10 h-10 mx-auto mb-2 rounded-full bg-blue-100 flex items-center justify-center text-xl">🌐</div>
+              <h3 class="text-base font-bold text-dark mb-1">网络配置</h3>
+              <p class="compact-text text-slate-600">nmcli 为核心<br>会话切换 · 网卡绑定</p>
+            </div>
+            <div class="glass-card p-3 hover:shadow-lg transition-shadow">
+              <div class="w-10 h-10 mx-auto mb-2 rounded-full bg-emerald-100 flex items-center justify-center text-xl">🔗</div>
+              <h3 class="text-base font-bold text-dark mb-1">双网卡绑定</h3>
+              <p class="compact-text text-slate-600">mode6 balance-alb<br>负载均衡 + 高可用</p>
+            </div>
+            <div class="glass-card p-3 hover:shadow-lg transition-shadow">
+              <div class="w-10 h-10 mx-auto mb-2 rounded-full bg-orange-100 flex items-center justify-center text-xl">🔐</div>
+              <h3 class="text-base font-bold text-dark mb-1">SSH 安全</h3>
+              <p class="compact-text text-slate-600">口令 → 密钥验证<br>scp 远程传输</p>
+            </div>
+          </div>
+
+          <div class="fade-in-up delay-300 glass-card p-5 text-left max-w-2xl mx-auto">
+            <h3 class="text-lg font-bold text-dark mb-3 text-center">📋 核心考点速记</h3>
+            <div class="grid grid-cols-2 gap-x-4 gap-y-1.5 compact-text text-slate-700">
+              <div class="flex items-center gap-2"><span class="text-violet-600">☑</span> NetworkManager 替代 network 服务</div>
+              <div class="flex items-center gap-2"><span class="text-violet-600">☑</span> nmcli connection 管理连接配置</div>
+              <div class="flex items-center gap-2"><span class="text-violet-600">☑</span> 网络会话实现场景快速切换</div>
+              <div class="flex items-center gap-2"><span class="text-violet-600">☑</span> mode6 无需交换机支持</div>
+              <div class="flex items-center gap-2"><span class="text-violet-600">☑</span> ssh-keygen + ssh-copy-id 免密登录</div>
+              <div class="flex items-center gap-2"><span class="text-violet-600">☑</span> PermitRootLogin / PasswordAuthentication</div>
+              <div class="flex items-center gap-2"><span class="text-violet-600">☑</span> scp 基于 SSH 加密传输文件</div>
+              <div class="flex items-center gap-2"><span class="text-violet-600">☑</span> 修改 sshd_config 后必须 restart</div>
+            </div>
+          </div>
+
+          <div class="fade-in-up delay-400 mt-6">
+            <p class="text-lg text-slate-500">感谢聆听 · 实践出真知</p>
+            <p class="compact-text text-slate-400 mt-1">基于 RHEL 7/8/9 · NetworkManager · OpenSSH</p>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+
+  <div class="page-num" id="pageNum">01 / 10</div>
+
+  <script>
+    (function() {
+      let currentSlide = 0;
+      const totalSlides = 10;
+      const wrapper = document.getElementById('slidesWrapper');
+      const dots = document.querySelectorAll('.nav-dot');
+      const pageNum = document.getElementById('pageNum');
+      const progressBar = document.getElementById('progressBar');
+      let isAnimating = false;
+      let touchStartY = 0;
+
+      function updateSlide(index) {
+        if (index < 0 || index >= totalSlides || isAnimating) return;
+        isAnimating = true;
+        currentSlide = index;
+
+        wrapper.style.transform = `translateY(-${index * 100}vh)`;
+
+        dots.forEach((dot, i) => {
+          dot.classList.toggle('active', i === index);
+        });
+
+        pageNum.textContent = `${String(index + 1).padStart(2, '0')} / ${totalSlides}`;
+        progressBar.style.width = `${((index + 1) / totalSlides) * 100}%`;
+
+        document.querySelectorAll('.slide').forEach((slide, i) => {
+          slide.classList.toggle('active', i === index);
+        });
+
+        setTimeout(() => { isAnimating = false; }, 800);
+      }
+
+      let wheelTimeout;
+      window.addEventListener('wheel', (e) => {
+        if (wheelTimeout) return;
+        wheelTimeout = setTimeout(() => {
+          if (e.deltaY > 30) updateSlide(currentSlide + 1);
+          else if (e.deltaY < -30) updateSlide(currentSlide - 1);
+          wheelTimeout = null;
+        }, 50);
+      }, { passive: true });
+
+      window.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowDown' || e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ' ') {
+          e.preventDefault();
+          updateSlide(currentSlide + 1);
+        } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft' || e.key === 'PageUp') {
+          e.preventDefault();
+          updateSlide(currentSlide - 1);
+        } else if (e.key === 'Home') {
+          e.preventDefault();
+          updateSlide(0);
+        } else if (e.key === 'End') {
+          e.preventDefault();
+          updateSlide(totalSlides - 1);
+        }
+      });
+
+      window.addEventListener('touchstart', (e) => {
+        touchStartY = e.touches[0].clientY;
+      }, { passive: true });
+
+      window.addEventListener('touchend', (e) => {
+        const diff = touchStartY - e.changedTouches[0].clientY;
+        if (Math.abs(diff) > 50) {
+          if (diff > 0) updateSlide(currentSlide + 1);
+          else updateSlide(currentSlide - 1);
+        }
+      }, { passive: true });
+
+      window.goToSlide = updateSlide;
+
+      setTimeout(() => {
+        document.querySelector('.slide').classList.add('active');
+      }, 100);
+    })();
+  </script>
+</body>
+</html>

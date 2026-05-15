@@ -1,0 +1,1333 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>企业级Linux防火墙实践案例 - 多区域安全网关部署</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#10b981',
+            secondary: '#059669',
+            danger: '#ef4444',
+            dark: '#0f172a',
+            code: '#1e293b'
+          },
+          fontFamily: {
+            sans: ['"Noto Sans SC"', 'sans-serif'],
+            mono: ['"Courier New"', 'Courier', 'monospace']
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      font-family: 'Noto Sans SC', sans-serif;
+      background: #ffffff;
+      color: #0f172a;
+      overflow: hidden;
+      height: 100%;
+      width: 100%;
+    }
+    .slide-container {
+      height: 100vh;
+      width: 100vw;
+      overflow: hidden;
+      position: relative;
+    }
+    .slides-wrapper {
+      height: 100%;
+      width: 100%;
+      transition: transform 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .slide {
+      height: 100vh;
+      width: 100vw;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 3vh 4vw;
+      position: relative;
+      overflow: hidden;
+    }
+    .slide::before {
+      content: '';
+      position: absolute;
+      top: -40%;
+      right: -15%;
+      width: 70vh;
+      height: 70vh;
+      background: radial-gradient(circle, rgba(16,185,129,0.05) 0%, transparent 70%);
+      border-radius: 50%;
+      pointer-events: none;
+    }
+    .slide::after {
+      content: '';
+      position: absolute;
+      bottom: -30%;
+      left: -10%;
+      width: 50vh;
+      height: 50vh;
+      background: radial-gradient(circle, rgba(5,150,105,0.03) 0%, transparent 70%);
+      border-radius: 50%;
+      pointer-events: none;
+    }
+    .fade-in-up {
+      opacity: 0;
+      transform: translateY(30px);
+      transition: all 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .slide.active .fade-in-up {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .delay-100 { transition-delay: 0.1s; }
+    .delay-200 { transition-delay: 0.2s; }
+    .delay-300 { transition-delay: 0.3s; }
+    .delay-400 { transition-delay: 0.4s; }
+    .delay-500 { transition-delay: 0.5s; }
+    .code-block {
+      background: #1e293b;
+      border-radius: 10px;
+      padding: 1rem 1.25rem;
+      font-family: 'Courier New', Courier, monospace;
+      color: #e2e8f0;
+      overflow-x: auto;
+      border-left: 3px solid #10b981;
+      box-shadow: 0 8px 30px -8px rgba(16,185,129,0.2);
+      font-size: 0.85rem;
+      line-height: 1.5;
+    }
+    .code-block .comment { color: #64748b; }
+    .code-block .keyword { color: #f472b6; }
+    .code-block .string { color: #34d399; }
+    .code-block .cmd { color: #60a5fa; }
+    .code-block .arg { color: #fbbf24; }
+    .nav-dots {
+      position: fixed;
+      right: 1.5rem;
+      top: 50%;
+      transform: translateY(-50%);
+      z-index: 50;
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+    }
+    .nav-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #cbd5e1;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    .nav-dot.active {
+      background: #10b981;
+      transform: scale(1.3);
+      box-shadow: 0 0 0 3px rgba(16,185,129,0.2);
+    }
+    .glass-card {
+      background: rgba(255,255,255,0.95);
+      border: 1px solid rgba(16,185,129,0.12);
+      border-radius: 12px;
+      box-shadow: 0 2px 20px rgba(0,0,0,0.04);
+    }
+    .step-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #10b981, #059669);
+      color: white;
+      font-weight: 700;
+      font-size: 0.9rem;
+      flex-shrink: 0;
+    }
+    .custom-table {
+      border-collapse: separate;
+      border-spacing: 0;
+      width: 100%;
+      font-size: 0.9rem;
+    }
+    .custom-table th {
+      background: linear-gradient(135deg, #10b981, #059669);
+      color: white;
+      padding: 0.5rem 0.75rem;
+      text-align: left;
+      font-weight: 600;
+    }
+    .custom-table th:first-child { border-radius: 6px 0 0 0; }
+    .custom-table th:last-child { border-radius: 0 6px 0 0; }
+    .custom-table td {
+      padding: 0.5rem 0.75rem;
+      border-bottom: 1px solid #e2e8f0;
+      background: white;
+    }
+    .custom-table tr:last-child td:first-child { border-radius: 0 0 0 6px; }
+    .custom-table tr:last-child td:last-child { border-radius: 0 0 6px 0; }
+    .tag {
+      display: inline-block;
+      padding: 0.15rem 0.5rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 500;
+    }
+    .tag-green { background: #d1fae5; color: #065f46; }
+    .tag-blue { background: #dbeafe; color: #1e40af; }
+    .tag-red { background: #fee2e2; color: #991b1b; }
+    .tag-orange { background: #ffedd5; color: #9a3412; }
+    .tag-purple { background: #f3e8ff; color: #6b21a8; }
+    .page-num {
+      position: fixed;
+      bottom: 2vh;
+      left: 50%;
+      transform: translateX(-50%);
+      color: #94a3b8;
+      font-size: 0.8rem;
+      letter-spacing: 0.1em;
+      z-index: 40;
+    }
+    .progress-bar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      height: 3px;
+      background: linear-gradient(90deg, #10b981, #059669);
+      z-index: 100;
+      transition: width 0.5s ease;
+    }
+    .scroll-hint {
+      position: absolute;
+      bottom: 5vh;
+      left: 50%;
+      transform: translateX(-50%);
+      animation: bounce 2s infinite;
+      color: #10b981;
+      font-size: 1.5rem;
+    }
+    @keyframes bounce {
+      0%, 20%, 50%, 80%, 100% { transform: translateX(-50%) translateY(0); }
+      40% { transform: translateX(-50%) translateY(-8px); }
+      60% { transform: translateX(-50%) translateY(-4px); }
+    }
+    .compact-text { font-size: 0.95rem; line-height: 1.5; }
+    .compact-title { font-size: 1.25rem; line-height: 1.3; }
+    .compact-code { font-size: 0.8rem; line-height: 1.45; padding: 0.75rem 1rem; }
+  </style>
+<base target="_blank">
+</head>
+<body>
+
+  <div class="progress-bar" id="progressBar" style="width: 8.33%"></div>
+
+  <div class="nav-dots" id="navDots">
+    <div class="nav-dot active" onclick="goToSlide(0)"></div>
+    <div class="nav-dot" onclick="goToSlide(1)"></div>
+    <div class="nav-dot" onclick="goToSlide(2)"></div>
+    <div class="nav-dot" onclick="goToSlide(3)"></div>
+    <div class="nav-dot" onclick="goToSlide(4)"></div>
+    <div class="nav-dot" onclick="goToSlide(5)"></div>
+    <div class="nav-dot" onclick="goToSlide(6)"></div>
+    <div class="nav-dot" onclick="goToSlide(7)"></div>
+    <div class="nav-dot" onclick="goToSlide(8)"></div>
+    <div class="nav-dot" onclick="goToSlide(9)"></div>
+    <div class="nav-dot" onclick="goToSlide(10)"></div>
+    <div class="nav-dot" onclick="goToSlide(11)"></div>
+  </div>
+
+  <div class="slide-container">
+    <div class="slides-wrapper" id="slidesWrapper">
+
+      <!-- ========== 第1页：封面 ========== -->
+      <section class="slide active">
+        <div class="text-center max-w-4xl mx-auto relative z-10">
+          <div class="fade-in-up mb-4">
+            <span class="tag tag-green text-sm px-3 py-1">RHCSA 企业实战课程</span>
+          </div>
+          <h1 class="fade-in-up delay-100 text-5xl font-black text-dark mb-4 tracking-tight leading-tight">
+            企业级 <span class="text-primary">Linux 防火墙</span><br>实践案例
+          </h1>
+          <p class="fade-in-up delay-200 text-xl text-slate-600 mb-6 font-light">
+            多区域安全网关部署 · firewalld + NAT 综合实战
+          </p>
+          <div class="fade-in-up delay-300 flex justify-center gap-3 mb-8">
+            <div class="glass-card px-4 py-3 flex items-center gap-2">
+              <div class="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-lg">🛡️</div>
+              <span class="text-base font-medium text-slate-700">firewalld</span>
+            </div>
+            <div class="glass-card px-4 py-3 flex items-center gap-2">
+              <div class="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-lg">🌐</div>
+              <span class="text-base font-medium text-slate-700">SNAT / DNAT</span>
+            </div>
+            <div class="glass-card px-4 py-3 flex items-center gap-2">
+              <div class="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-lg">🔒</div>
+              <span class="text-base font-medium text-slate-700">三区隔离</span>
+            </div>
+          </div>
+          <div class="fade-in-up delay-400 text-slate-400 text-base">
+            基于 RHEL 9 · NetworkManager · nftables 后端
+          </div>
+          <div class="scroll-hint fade-in-up delay-500">⌄</div>
+        </div>
+      </section>
+
+      <!-- ========== 第2页：Linux防火墙概述 ========== -->
+      <section class="slide">
+        <div class="max-w-5xl w-full mx-auto relative z-10 h-full flex flex-col justify-center">
+          <div class="fade-in-up mb-2">
+            <span class="text-primary font-bold text-lg tracking-wider">01</span>
+            <span class="text-slate-400 text-base ml-2">/ 12</span>
+          </div>
+          <h2 class="fade-in-up delay-100 text-3xl font-bold text-dark mb-4">Linux 防火墙技术演进</h2>
+
+          <div class="fade-in-up delay-200 grid grid-cols-2 gap-5 mb-4">
+            <!-- 左侧：iptables vs firewalld -->
+            <div class="space-y-3">
+              <div class="glass-card p-4">
+                <h3 class="compact-title font-bold text-dark mb-3">📜 三代防火墙技术</h3>
+                <div class="space-y-3">
+                  <div class="flex gap-3 items-start p-3 bg-slate-50 rounded-lg border-l-4 border-slate-400">
+                    <div class="text-xl">🔥</div>
+                    <div>
+                      <div class="text-base font-bold text-dark">iptables（RHEL 6 及之前）</div>
+                      <p class="compact-text text-slate-600 mt-1">
+                        基于 netfilter，命令复杂，规则即时生效无持久化。修改规则需全部重载，易中断现有连接。
+                      </p>
+                    </div>
+                  </div>
+                  <div class="flex gap-3 items-start p-3 bg-emerald-50 rounded-lg border-l-4 border-primary">
+                    <div class="text-xl">🛡️</div>
+                    <div>
+                      <div class="text-base font-bold text-dark">firewalld（RHEL 7+）</div>
+                      <p class="compact-text text-slate-600 mt-1">
+                        动态防火墙管理器，支持<strong>运行时/永久</strong>双模式，区域概念简化配置，后端仍基于 netfilter/nftables。
+                      </p>
+                    </div>
+                  </div>
+                  <div class="flex gap-3 items-start p-3 bg-blue-50 rounded-lg border-l-4 border-blue-500">
+                    <div class="text-xl">⚡</div>
+                    <div>
+                      <div class="text-base font-bold text-dark">nftables（RHEL 9 默认后端）</div>
+                      <p class="compact-text text-slate-600 mt-1">
+                        替代 iptables，语法更简洁，性能更好，统一 IPv4/IPv6 管理。firewalld 在 RHEL 9 底层使用 nftables。
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 右侧：firewalld 核心优势 -->
+            <div class="space-y-3">
+              <div class="glass-card p-4">
+                <h3 class="compact-title font-bold text-dark mb-3">✨ 为什么选择 firewalld？</h3>
+                <div class="space-y-2.5">
+                  <div class="flex items-start gap-2">
+                    <span class="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center text-sm flex-shrink-0">1</span>
+                    <div>
+                      <span class="font-bold text-dark">动态更新</span>
+                      <p class="compact-text text-slate-600">添加规则不中断现有连接，无需全部规则重载</p>
+                    </div>
+                  </div>
+                  <div class="flex items-start gap-2">
+                    <span class="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center text-sm flex-shrink-0">2</span>
+                    <div>
+                      <span class="font-bold text-dark">区域（Zone）概念</span>
+                      <p class="compact-text text-slate-600">预定义安全策略模板，按网络位置分配信任级别</p>
+                    </div>
+                  </div>
+                  <div class="flex items-start gap-2">
+                    <span class="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center text-sm flex-shrink-0">3</span>
+                    <div>
+                      <span class="font-bold text-dark">运行时 vs 永久</span>
+                      <p class="compact-text text-slate-600">支持测试配置，确认无误后再持久化，避免服务中断</p>
+                    </div>
+                  </div>
+                  <div class="flex items-start gap-2">
+                    <span class="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center text-sm flex-shrink-0">4</span>
+                    <div>
+                      <span class="font-bold text-dark">D-Bus API 集成</span>
+                      <p class="compact-text text-slate-600">应用可通过 API 请求临时开放端口（如 UPnP、虚拟机）</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="glass-card p-3 bg-slate-50">
+                <h4 class="text-sm font-bold text-dark mb-2">🔧 架构层次</h4>
+                <div class="space-y-1.5 compact-text text-slate-700 font-mono">
+                  <div class="flex items-center gap-2">
+                    <span class="text-slate-400">用户层</span>
+                    <span>firewall-cmd / firewall-config</span>
+                  </div>
+                  <div class="text-slate-300">↓ D-Bus API</div>
+                  <div class="flex items-center gap-2">
+                    <span class="text-slate-400">守护层</span>
+                    <span>firewalld（动态管理规则）</span>
+                  </div>
+                  <div class="text-slate-300">↓ 内核接口</div>
+                  <div class="flex items-center gap-2">
+                    <span class="text-slate-400">后端层</span>
+                    <span class="text-primary font-bold">nftables（RHEL 9）</span>
+                  </div>
+                  <div class="text-slate-300">↓ netfilter</div>
+                  <div class="flex items-center gap-2">
+                    <span class="text-slate-400">内核层</span>
+                    <span>数据包过滤框架</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========== 第3页：firewalld区域详解 ========== -->
+      <section class="slide">
+        <div class="max-w-5xl w-full mx-auto relative z-10 h-full flex flex-col justify-center">
+          <div class="fade-in-up mb-2">
+            <span class="text-primary font-bold text-lg tracking-wider">02</span>
+            <span class="text-slate-400 text-base ml-2">/ 12</span>
+          </div>
+          <h2 class="fade-in-up delay-100 text-3xl font-bold text-dark mb-4">firewalld 九大安全区域</h2>
+
+          <div class="fade-in-up delay-200">
+            <table class="custom-table">
+              <thead>
+                <tr>
+                  <th>区域</th>
+                  <th>信任度</th>
+                  <th>默认策略</th>
+                  <th>典型应用场景</th>
+                </tr>
+              </thead>
+              <tbody class="text-slate-700">
+                <tr>
+                  <td><span class="font-bold text-slate-900">drop</span></td>
+                  <td><span class="tag tag-red">最低</span></td>
+                  <td class="compact-text">丢弃所有传入，无回应</td>
+                  <td class="compact-text">防扫描、蜜罐环境</td>
+                </tr>
+                <tr>
+                  <td><span class="font-bold text-slate-900">block</span></td>
+                  <td><span class="tag tag-red">极低</span></td>
+                  <td class="compact-text">拒绝所有传入，返回 ICMP 错误</td>
+                  <td class="compact-text">临时阻断可疑 IP</td>
+                </tr>
+                <tr>
+                  <td><span class="font-bold text-slate-900">public</span></td>
+                  <td><span class="tag tag-orange">低</span></td>
+                  <td class="compact-text">仅允许 SSH、DHCP、ping</td>
+                  <td class="compact-text">公共场所 WiFi、酒店网络</td>
+                </tr>
+                <tr>
+                  <td><span class="font-bold text-slate-900">external</span></td>
+                  <td><span class="tag tag-orange">中低</span></td>
+                  <td class="compact-text">允许 SSH，默认开启 MASQUERADE</td>
+                  <td class="compact-text"><strong>NAT 网关外网接口</strong></td>
+                </tr>
+                <tr>
+                  <td><span class="font-bold text-slate-900">dmz</span></td>
+                  <td><span class="tag tag-blue">中</span></td>
+                  <td class="compact-text">允许 SSH，限制其他服务</td>
+                  <td class="compact-text"><strong>非军事区服务器</strong></td>
+                </tr>
+                <tr>
+                  <td><span class="font-bold text-slate-900">work</span></td>
+                  <td><span class="tag tag-blue">中高</span></td>
+                  <td class="compact-text">允许 SSH、Samba、IPP 打印</td>
+                  <td class="compact-text">企业办公网络</td>
+                </tr>
+                <tr>
+                  <td><span class="font-bold text-slate-900">home</span></td>
+                  <td><span class="tag tag-green">高</span></td>
+                  <td class="compact-text">允许 SSH、Samba、DHCP、mDNS</td>
+                  <td class="compact-text">家庭网络</td>
+                </tr>
+                <tr>
+                  <td><span class="font-bold text-slate-900">internal</span></td>
+                  <td><span class="tag tag-green">很高</span></td>
+                  <td class="compact-text">允许大多数内部服务</td>
+                  <td class="compact-text"><strong>内网数据中心</strong></td>
+                </tr>
+                <tr>
+                  <td><span class="font-bold text-slate-900">trusted</span></td>
+                  <td><span class="tag tag-purple">最高</span></td>
+                  <td class="compact-text">允许所有流量</td>
+                  <td class="compact-text">完全信任环境（慎用）</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div class="mt-3 grid grid-cols-3 gap-3">
+              <div class="glass-card p-3 bg-emerald-50 border-emerald-200">
+                <h4 class="text-sm font-bold text-emerald-800 mb-1">🎯 区域匹配优先级</h4>
+                <ol class="compact-text text-emerald-700 list-decimal list-inside space-y-0.5">
+                  <li>源地址绑定（source）</li>
+                  <li>接口绑定（interface）</li>
+                  <li>默认区域（default）</li>
+                </ol>
+              </div>
+              <div class="glass-card p-3 bg-blue-50 border-blue-200">
+                <h4 class="text-sm font-bold text-blue-800 mb-1">🔧 查看默认区域</h4>
+                <div class="code-block compact-code !p-2 !text-xs">
+                  firewall-cmd --get-default-zone<br>
+                  firewall-cmd --get-active-zones
+                </div>
+              </div>
+              <div class="glass-card p-3 bg-orange-50 border-orange-200">
+                <h4 class="text-sm font-bold text-orange-800 mb-1">⚠️ 安全建议</h4>
+                <p class="compact-text text-orange-700">
+                  生产环境严禁使用 <span class="font-mono">trusted</span> 作为默认区域。外网接口必须绑定到 <span class="font-mono">external</span> 或 <span class="font-mono">public</span>。
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========== 第4页：firewalld常用命令 ========== -->
+      <section class="slide">
+        <div class="max-w-5xl w-full mx-auto relative z-10 h-full flex flex-col justify-center">
+          <div class="fade-in-up mb-2">
+            <span class="text-primary font-bold text-lg tracking-wider">03</span>
+            <span class="text-slate-400 text-base ml-2">/ 12</span>
+          </div>
+          <h2 class="fade-in-up delay-100 text-3xl font-bold text-dark mb-4">firewalld 常用命令速查</h2>
+
+          <div class="fade-in-up delay-200 grid grid-cols-2 gap-4">
+            <!-- 左侧：状态与区域管理 -->
+            <div class="space-y-3">
+              <div class="glass-card p-4">
+                <h3 class="compact-title font-bold text-dark mb-2 flex items-center gap-2">
+                  <span class="text-primary">📊</span> 状态与区域管理
+                </h3>
+                <div class="code-block compact-code space-y-1">
+                  <span class="comment"># 查看防火墙状态</span><br>
+                  <span class="cmd">firewall-cmd</span> <span class="arg">--state</span><br><br>
+                  <span class="comment"># 查看默认区域</span><br>
+                  <span class="cmd">firewall-cmd</span> <span class="arg">--get-default-zone</span><br><br>
+                  <span class="comment"># 查看生效区域及绑定接口</span><br>
+                  <span class="cmd">firewall-cmd</span> <span class="arg">--get-active-zones</span><br><br>
+                  <span class="comment"># 查看指定区域所有配置</span><br>
+                  <span class="cmd">firewall-cmd</span> <span class="arg">--list-all</span> <span class="arg">--zone=</span>public<br><br>
+                  <span class="comment"># 设置默认区域</span><br>
+                  <span class="cmd">firewall-cmd</span> <span class="arg">--set-default-zone=</span>public<br><br>
+                  <span class="comment"># 将接口移动到指定区域</span><br>
+                  <span class="cmd">firewall-cmd</span> <span class="arg">--permanent</span> <span class="arg">--zone=</span>external <span class="arg">--change-interface=</span>ens224
+                </div>
+              </div>
+
+              <div class="glass-card p-4">
+                <h3 class="compact-title font-bold text-dark mb-2 flex items-center gap-2">
+                  <span class="text-primary">🔄</span> 运行时 vs 永久模式
+                </h3>
+                <div class="space-y-2 compact-text text-slate-700">
+                  <div class="p-2 bg-yellow-50 rounded border border-yellow-200">
+                    <span class="font-bold text-yellow-800">运行时（Runtime）</span>
+                    <p class="mt-0.5">立即生效，仅存在于内存，重启后丢失。用于临时测试。</p>
+                  </div>
+                  <div class="p-2 bg-emerald-50 rounded border border-emerald-200">
+                    <span class="font-bold text-emerald-800">永久（Permanent）</span>
+                    <p class="mt-0.5">写入 <span class="font-mono">/etc/firewalld/</span> XML 文件，需 <span class="font-mono">--reload</span> 生效，重启后保留。</p>
+                  </div>
+                </div>
+                <div class="code-block compact-code mt-2">
+                  <span class="comment"># 标准操作流程：先运行时测试，再永久保存</span><br>
+                  <span class="cmd">firewall-cmd</span> <span class="arg">--add-service=</span>http <span class="comment"># 立即生效测试</span><br>
+                  <span class="cmd">firewall-cmd</span> <span class="arg">--permanent</span> <span class="arg">--add-service=</span>http <span class="comment"># 持久化</span><br>
+                  <span class="cmd">firewall-cmd</span> <span class="arg">--reload</span> <span class="comment"># 重载使永久配置生效</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 右侧：服务/端口/富规则 -->
+            <div class="space-y-3">
+              <div class="glass-card p-4">
+                <h3 class="compact-title font-bold text-dark mb-2 flex items-center gap-2">
+                  <span class="text-primary">🚪</span> 服务与端口管理
+                </h3>
+                <div class="code-block compact-code space-y-1">
+                  <span class="comment"># 查看系统预定义服务列表</span><br>
+                  <span class="cmd">firewall-cmd</span> <span class="arg">--get-services</span><br><br>
+                  <span class="comment"># 允许/拒绝服务（永久生效示例）</span><br>
+                  <span class="cmd">firewall-cmd</span> <span class="arg">--permanent</span> <span class="arg">--add-service=</span>http<br>
+                  <span class="cmd">firewall-cmd</span> <span class="arg">--permanent</span> <span class="arg">--remove-service=</span>https<br><br>
+                  <span class="comment"># 开放/关闭端口</span><br>
+                  <span class="cmd">firewall-cmd</span> <span class="arg">--permanent</span> <span class="arg">--add-port=</span>8080/tcp<br>
+                  <span class="cmd">firewall-cmd</span> <span class="arg">--permanent</span> <span class="arg">--add-port=</span>6000-6010/tcp<br>
+                  <span class="cmd">firewall-cmd</span> <span class="arg">--permanent</span> <span class="arg">--remove-port=</span>8080/tcp<br><br>
+                  <span class="comment"># 查看已开放的服务和端口</span><br>
+                  <span class="cmd">firewall-cmd</span> <span class="arg">--list-services</span><br>
+                  <span class="cmd">firewall-cmd</span> <span class="arg">--list-ports</span>
+                </div>
+              </div>
+
+              <div class="glass-card p-4">
+                <h3 class="compact-title font-bold text-dark mb-2 flex items-center gap-2">
+                  <span class="text-primary">📜</span> 富规则（Rich Rules）
+                </h3>
+                <div class="code-block compact-code space-y-1">
+                  <span class="comment"># 允许特定 IP 访问特定端口</span><br>
+                  <span class="cmd">firewall-cmd</span> <span class="arg">--permanent</span> <span class="arg">--add-rich-rule=</span><span class="string">'rule family="ipv4" source address="192.168.1.100" service name="ssh" accept'</span><br><br>
+                  <span class="comment"># 拒绝 ping，但允许特定子网</span><br>
+                  <span class="cmd">firewall-cmd</span> <span class="arg">--permanent</span> <span class="arg">--add-rich-rule=</span><span class="string">'rule protocol value="icmp" reject'</span><br>
+                  <span class="cmd">firewall-cmd</span> <span class="arg">--permanent</span> <span class="arg">--add-rich-rule=</span><span class="string">'rule family="ipv4" source address="192.168.10.0/24" protocol value="icmp" accept'</span><br><br>
+                  <span class="comment"># 限制连接速率（防暴力破解）</span><br>
+                  <span class="cmd">firewall-cmd</span> <span class="arg">--permanent</span> <span class="arg">--add-rich-rule=</span><span class="string">'rule service name="ssh" limit value="2/m" accept'</span>
+                </div>
+              </div>
+
+              <div class="glass-card p-3 bg-slate-50">
+                <h4 class="text-sm font-bold text-dark mb-1">📝 常用服务与端口对照</h4>
+                <div class="grid grid-cols-2 gap-x-3 gap-y-1 compact-text text-slate-700 font-mono">
+                  <div>ssh → 22/tcp</div>
+                  <div>http → 80/tcp</div>
+                  <div>https → 443/tcp</div>
+                  <div>dhcp → 67-68/udp</div>
+                  <div>dns → 53/tcp+udp</div>
+                  <div>smtp → 25/tcp</div>
+                  <div>mysql → 3306/tcp</div>
+                  <div>samba → 445/tcp</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========== 第5页：项目背景与拓扑 ========== -->
+      <section class="slide">
+        <div class="max-w-5xl w-full mx-auto relative z-10 h-full flex flex-col justify-center">
+          <div class="fade-in-up mb-2">
+            <span class="text-primary font-bold text-lg tracking-wider">04</span>
+            <span class="text-slate-400 text-base ml-2">/ 12</span>
+          </div>
+          <h2 class="fade-in-up delay-100 text-3xl font-bold text-dark mb-5">项目背景与网络拓扑</h2>
+
+          <div class="fade-in-up delay-200 grid grid-cols-5 gap-4 items-center">
+            <div class="col-span-2 space-y-3">
+              <div class="glass-card p-4">
+                <h3 class="compact-title font-bold text-dark mb-2 flex items-center gap-2">
+                  <span class="text-primary">📋</span> 场景需求
+                </h3>
+                <ul class="compact-text text-slate-700 space-y-1.5">
+                  <li class="flex items-start gap-2">
+                    <span class="text-primary font-bold">▸</span>
+                    <span>部署 <strong>RHEL 9 安全网关</strong>，连接三个网络区域</span>
+                  </li>
+                  <li class="flex items-start gap-2">
+                    <span class="text-primary font-bold">▸</span>
+                    <span>外网仅可访问 DMZ 的 Web / 邮件服务</span>
+                  </li>
+                  <li class="flex items-start gap-2">
+                    <span class="text-primary font-bold">▸</span>
+                    <span>内网可管理 DMZ，但 DMZ <strong class="text-danger">禁止访内网</strong></span>
+                  </li>
+                  <li class="flex items-start gap-2">
+                    <span class="text-primary font-bold">▸</span>
+                    <span>内网 / DMZ 共享 SNAT 上网</span>
+                  </li>
+                </ul>
+              </div>
+              <div class="glass-card p-3">
+                <div class="flex flex-wrap gap-1.5">
+                  <span class="tag tag-green">区域隔离</span>
+                  <span class="tag tag-blue">端口转发</span>
+                  <span class="tag tag-orange">地址伪装</span>
+                  <span class="tag tag-red">安全策略</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="col-span-3 flex justify-center">
+              <svg width="420" height="300" viewBox="0 0 520 400" class="topology-svg">
+                <ellipse cx="260" cy="60" rx="80" ry="35" fill="#dbeafe" stroke="#3b82f6" stroke-width="2"/>
+                <text x="260" y="55" text-anchor="middle" font-size="14" fill="#1e40af" font-weight="bold">🌐 Internet</text>
+                <text x="260" y="75" text-anchor="middle" font-size="11" fill="#3b82f6">203.0.113.0/28</text>
+
+                <rect x="170" y="140" width="180" height="70" rx="12" fill="#d1fae5" stroke="#10b981" stroke-width="3"/>
+                <text x="260" y="165" text-anchor="middle" font-size="15" fill="#065f46" font-weight="bold">🛡️ 防火墙网关</text>
+                <text x="260" y="185" text-anchor="middle" font-size="11" fill="#059669">RHEL 9 + firewalld</text>
+                <text x="260" y="200" text-anchor="middle" font-size="10" fill="#64748b">ens224 | ens160 | ens192</text>
+
+                <line x1="260" y1="95" x2="260" y2="140" stroke="#3b82f6" stroke-width="2" stroke-dasharray="5,5"/>
+                <text x="275" y="120" font-size="10" fill="#3b82f6">公网IP</text>
+
+                <rect x="40" y="280" width="160" height="80" rx="10" fill="#fef3c7" stroke="#f59e0b" stroke-width="2"/>
+                <text x="120" y="310" text-anchor="middle" font-size="14" fill="#92400e" font-weight="bold">🏢 DMZ区</text>
+                <text x="120" y="330" text-anchor="middle" font-size="11" fill="#b45309">192.168.1.0/24</text>
+                <text x="120" y="350" text-anchor="middle" font-size="10" fill="#78716c">Web / Mail / DNS</text>
+
+                <rect x="320" y="280" width="160" height="80" rx="10" fill="#fce7f3" stroke="#ec4899" stroke-width="2"/>
+                <text x="400" y="310" text-anchor="middle" font-size="14" fill="#9d174d" font-weight="bold">🏠 内网区</text>
+                <text x="400" y="330" text-anchor="middle" font-size="11" fill="#be185d">192.168.10.0/24</text>
+                <text x="400" y="350" text-anchor="middle" font-size="10" fill="#78716c">办公 / 研发 / 管理</text>
+
+                <line x1="200" y1="210" x2="140" y2="280" stroke="#f59e0b" stroke-width="2"/>
+                <text x="150" y="250" font-size="10" fill="#f59e0b">ens160</text>
+
+                <line x1="320" y1="210" x2="380" y2="280" stroke="#ec4899" stroke-width="2"/>
+                <text x="335" y="250" font-size="10" fill="#ec4899">ens192</text>
+
+                <rect x="30" y="150" width="110" height="25" rx="6" fill="white" stroke="#10b981" stroke-width="1"/>
+                <text x="85" y="167" text-anchor="middle" font-size="10" fill="#059669">默认拒绝入站</text>
+              </svg>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========== 第6页：环境准备 ========== -->
+      <section class="slide">
+        <div class="max-w-5xl w-full mx-auto relative z-10 h-full flex flex-col justify-center">
+          <div class="fade-in-up mb-2">
+            <span class="text-primary font-bold text-lg tracking-wider">05</span>
+            <span class="text-slate-400 text-base ml-2">/ 12</span>
+          </div>
+          <h2 class="fade-in-up delay-100 text-3xl font-bold text-dark mb-4">环境准备与虚拟机配置</h2>
+
+          <div class="fade-in-up delay-200 grid grid-cols-2 gap-5">
+            <div>
+              <h3 class="compact-title font-bold text-dark mb-2">🔌 网卡规划</h3>
+              <table class="custom-table">
+                <thead>
+                  <tr>
+                    <th>网卡</th>
+                    <th>模式</th>
+                    <th>IP 地址</th>
+                    <th>作用</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="font-mono font-bold">ens160</td>
+                    <td>VMnet2</td>
+                    <td class="font-mono text-primary">192.168.1.1/24</td>
+                    <td><span class="tag tag-orange">DMZ 网关</span></td>
+                  </tr>
+                  <tr>
+                    <td class="font-mono font-bold">ens192</td>
+                    <td>VMnet3</td>
+                    <td class="font-mono text-primary">192.168.10.1/24</td>
+                    <td><span class="tag tag-blue">内网网关</span></td>
+                  </tr>
+                  <tr>
+                    <td class="font-mono font-bold">ens224</td>
+                    <td>NAT/桥接</td>
+                    <td class="font-mono text-primary">203.0.113.10/28</td>
+                    <td><span class="tag tag-green">外网接入</span></td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <div class="mt-3 glass-card p-3">
+                <h4 class="text-base font-bold text-dark mb-2">🖥️ 测试主机</h4>
+                <div class="compact-text text-slate-700 space-y-1">
+                  <div class="flex justify-between border-b border-slate-100 pb-1">
+                    <span>DMZ-Web 服务器</span>
+                    <span class="font-mono text-primary">192.168.1.100/24</span>
+                  </div>
+                  <div class="flex justify-between border-b border-slate-100 pb-1">
+                    <span>内网 PC</span>
+                    <span class="font-mono text-primary">192.168.10.50/24</span>
+                  </div>
+                  <div class="flex justify-between">
+                    <span>外网测试机</span>
+                    <span class="font-mono text-primary">203.0.113.50</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <h3 class="compact-title font-bold text-dark mb-2">📊 安全策略矩阵</h3>
+              <div class="glass-card p-4 space-y-2">
+                <div class="flex items-center gap-3 p-2.5 bg-slate-50 rounded-lg border-l-4 border-primary">
+                  <div class="text-xl">🌐</div>
+                  <div class="flex-1">
+                    <div class="text-base font-bold text-dark">外网区 (external)</div>
+                    <div class="compact-text text-slate-600">仅允许 DMZ 的 80/443/25 传入 · 开启 MASQUERADE</div>
+                  </div>
+                </div>
+                <div class="flex items-center gap-3 p-2.5 bg-slate-50 rounded-lg border-l-4 border-orange-400">
+                  <div class="text-xl">🏢</div>
+                  <div class="flex-1">
+                    <div class="text-base font-bold text-dark">DMZ区 (dmz)</div>
+                    <div class="compact-text text-slate-600">允许外网访问 Web/邮件 · 内网可 SSH · <span class="text-danger font-bold">禁止访内网</span></div>
+                  </div>
+                </div>
+                <div class="flex items-center gap-3 p-2.5 bg-slate-50 rounded-lg border-l-4 border-pink-400">
+                  <div class="text-xl">🏠</div>
+                  <div class="flex-1">
+                    <div class="text-base font-bold text-dark">内网区 (internal)</div>
+                    <div class="compact-text text-slate-600">可访问 DMZ 服务 · 可 SSH 跳板 · 禁止外网直访</div>
+                  </div>
+                </div>
+              </div>
+              <div class="mt-2 flex items-center gap-2 p-2 bg-red-50 rounded-lg border border-red-100">
+                <span class="text-lg">⚠️</span>
+                <span class="compact-text text-danger font-medium">核心原则：默认拒绝，显式允许，最小权限</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========== 第7页：基础网络配置 ========== -->
+      <section class="slide">
+        <div class="max-w-5xl w-full mx-auto relative z-10 h-full flex flex-col justify-center">
+          <div class="fade-in-up mb-2">
+            <span class="text-primary font-bold text-lg tracking-wider">06</span>
+            <span class="text-slate-400 text-base ml-2">/ 12</span>
+          </div>
+          <h2 class="fade-in-up delay-100 text-3xl font-bold text-dark mb-4">基础网络配置与 IP 转发</h2>
+
+          <div class="fade-in-up delay-200 grid grid-cols-5 gap-4">
+            <div class="col-span-2 space-y-3">
+              <div class="flex gap-3 items-start">
+                <div class="step-badge">1</div>
+                <div>
+                  <h3 class="text-base font-bold text-dark">配置主机名</h3>
+                  <p class="compact-text text-slate-600">hostnamectl 设置静态主机名</p>
+                </div>
+              </div>
+              <div class="flex gap-3 items-start">
+                <div class="step-badge">2</div>
+                <div>
+                  <h3 class="text-base font-bold text-dark">配置三块网卡</h3>
+                  <p class="compact-text text-slate-600">nmcli 创建连接，分配 IP 与区域</p>
+                </div>
+              </div>
+              <div class="flex gap-3 items-start">
+                <div class="step-badge">3</div>
+                <div>
+                  <h3 class="text-base font-bold text-dark">开启 IP 转发</h3>
+                  <p class="compact-text text-slate-600">sysctl 设置 net.ipv4.ip_forward = 1</p>
+                </div>
+              </div>
+              <div class="glass-card p-3 mt-2 bg-emerald-50 border-emerald-200">
+                <h4 class="text-sm font-bold text-emerald-800 mb-1">💡 关键概念</h4>
+                <p class="compact-text text-emerald-700">
+                  IP 转发是 NAT 的前提。Linux 内核默认关闭转发，必须显式开启，否则数据包无法在网卡间路由。
+                </p>
+              </div>
+            </div>
+
+            <div class="col-span-3 space-y-2">
+              <div class="code-block compact-code">
+                <span class="comment"># 步骤 1：设置主机名</span><br>
+                <span class="cmd">hostnamectl</span> <span class="arg">set-hostname</span> firewall.company.com<br><br>
+
+                <span class="comment"># 步骤 2：配置 DMZ 接口 ens160</span><br>
+                <span class="cmd">nmcli</span> <span class="arg">connection add</span> <span class="arg">con-name</span> dmz <span class="arg">type</span> ethernet <span class="arg">ifname</span> ens160 \<br>
+                &nbsp;&nbsp;<span class="arg">ipv4.method</span> manual \<br>
+                &nbsp;&nbsp;<span class="arg">ipv4.addresses</span> <span class="string">192.168.1.1/24</span> \<br>
+                &nbsp;&nbsp;<span class="arg">connection.autoconnect</span> yes<br><br>
+
+                <span class="comment"># 配置内网接口 ens192</span><br>
+                <span class="cmd">nmcli</span> <span class="arg">connection add</span> <span class="arg">con-name</span> internal <span class="arg">type</span> ethernet <span class="arg">ifname</span> ens192 \<br>
+                &nbsp;&nbsp;<span class="arg">ipv4.method</span> manual \<br>
+                &nbsp;&nbsp;<span class="arg">ipv4.addresses</span> <span class="string">192.168.10.1/24</span> \<br>
+                &nbsp;&nbsp;<span class="arg">connection.autoconnect</span> yes<br><br>
+
+                <span class="comment"># 配置外网接口 ens224</span><br>
+                <span class="cmd">nmcli</span> <span class="arg">connection add</span> <span class="arg">con-name</span> external <span class="arg">type</span> ethernet <span class="arg">ifname</span> ens224 \<br>
+                &nbsp;&nbsp;<span class="arg">ipv4.method</span> manual \<br>
+                &nbsp;&nbsp;<span class="arg">ipv4.addresses</span> <span class="string">203.0.113.10/28</span> \<br>
+                &nbsp;&nbsp;<span class="arg">ipv4.gateway</span> <span class="string">203.0.113.1</span> \<br>
+                &nbsp;&nbsp;<span class="arg">ipv4.dns</span> <span class="string">8.8.8.8</span>
+              </div>
+              <div class="code-block compact-code">
+                <span class="comment"># 步骤 3：开启 IP 转发（临时 + 永久）</span><br>
+                <span class="cmd">echo</span> <span class="string">1</span> > /proc/sys/net/ipv4/ip_forward<br>
+                <span class="cmd">echo</span> <span class="string">"net.ipv4.ip_forward = 1"</span> >> /etc/sysctl.conf<br>
+                <span class="cmd">sysctl</span> <span class="arg">-p</span><br><br>
+                <span class="comment"># 验证</span><br>
+                <span class="cmd">cat</span> /proc/sys/net/ipv4/ip_forward <span class="comment"># 应输出 1</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========== 第8页：区域划分 ========== -->
+      <section class="slide">
+        <div class="max-w-5xl w-full mx-auto relative z-10 h-full flex flex-col justify-center">
+          <div class="fade-in-up mb-2">
+            <span class="text-primary font-bold text-lg tracking-wider">07</span>
+            <span class="text-slate-400 text-base ml-2">/ 12</span>
+          </div>
+          <h2 class="fade-in-up delay-100 text-3xl font-bold text-dark mb-4">firewalld 区域划分与接口绑定</h2>
+
+          <div class="fade-in-up delay-200 grid grid-cols-2 gap-5">
+            <div class="space-y-3">
+              <div class="glass-card p-4">
+                <h3 class="compact-title font-bold text-dark mb-2">🎯 区域信任度模型</h3>
+                <div class="space-y-1.5">
+                  <div class="flex items-center justify-between p-2 bg-red-50 rounded-md border border-red-100">
+                    <div class="flex items-center gap-2">
+                      <span class="w-2.5 h-2.5 rounded-full bg-red-500"></span>
+                      <span class="text-sm font-bold text-slate-800">drop / block</span>
+                    </div>
+                    <span class="text-xs text-slate-500">丢弃 / 拒绝</span>
+                  </div>
+                  <div class="flex items-center justify-between p-2 bg-orange-50 rounded-md border border-orange-100">
+                    <div class="flex items-center gap-2">
+                      <span class="w-2.5 h-2.5 rounded-full bg-orange-500"></span>
+                      <span class="text-sm font-bold text-slate-800">public（默认）</span>
+                    </div>
+                    <span class="text-xs text-slate-500">公共场所 · 仅 SSH/DHCP</span>
+                  </div>
+                  <div class="flex items-center justify-between p-2 bg-yellow-50 rounded-md border border-yellow-200">
+                    <div class="flex items-center gap-2">
+                      <span class="w-2.5 h-2.5 rounded-full bg-yellow-500"></span>
+                      <span class="text-sm font-bold text-slate-800">external / dmz</span>
+                    </div>
+                    <span class="text-xs text-slate-500">外网 / 非军事区</span>
+                  </div>
+                  <div class="flex items-center justify-between p-2 bg-emerald-50 rounded-md border border-emerald-100">
+                    <div class="flex items-center gap-2">
+                      <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                      <span class="text-sm font-bold text-slate-800">work / home / internal</span>
+                    </div>
+                    <span class="text-xs text-slate-500">工作 / 家庭 / 内网</span>
+                  </div>
+                  <div class="flex items-center justify-between p-2 bg-emerald-100 rounded-md border border-emerald-300">
+                    <div class="flex items-center gap-2">
+                      <span class="w-2.5 h-2.5 rounded-full bg-emerald-700"></span>
+                      <span class="text-sm font-bold text-slate-800">trusted</span>
+                    </div>
+                    <span class="text-xs text-slate-500">完全信任 · 允许所有</span>
+                  </div>
+                </div>
+              </div>
+              <div class="glass-card p-3 border-l-4 border-primary">
+                <h4 class="text-sm font-bold text-dark mb-1">🔑 核心命令</h4>
+                <p class="compact-text text-slate-700 font-mono">
+                  firewall-cmd --permanent \<br>
+                  &nbsp;&nbsp;--zone=&lt;zone&gt; \<br>
+                  &nbsp;&nbsp;--add-interface=&lt;iface&gt;
+                </p>
+              </div>
+            </div>
+
+            <div class="space-y-3">
+              <div class="code-block compact-code">
+                <span class="comment"># 将接口分配到对应区域（持久化）</span><br><br>
+
+                <span class="comment"># 外网接口 → external 区域</span><br>
+                <span class="cmd">firewall-cmd</span> <span class="arg">--permanent</span> <span class="arg">--zone=</span>external <span class="arg">--add-interface=</span>ens224<br><br>
+
+                <span class="comment"># DMZ 接口 → dmz 区域</span><br>
+                <span class="cmd">firewall-cmd</span> <span class="arg">--permanent</span> <span class="arg">--zone=</span>dmz <span class="arg">--add-interface=</span>ens160<br><br>
+
+                <span class="comment"># 内网接口 → internal 区域</span><br>
+                <span class="cmd">firewall-cmd</span> <span class="arg">--permanent</span> <span class="arg">--zone=</span>internal <span class="arg">--add-interface=</span>ens192<br><br>
+
+                <span class="comment"># 重载生效</span><br>
+                <span class="cmd">firewall-cmd</span> <span class="arg">--reload</span><br><br>
+
+                <span class="comment"># 验证区域分配</span><br>
+                <span class="cmd">firewall-cmd</span> <span class="arg">--get-active-zones</span>
+              </div>
+              <div class="glass-card p-3 bg-slate-50">
+                <h4 class="text-sm font-bold text-dark mb-1">📋 预期输出</h4>
+                <div class="font-mono compact-code text-slate-700 space-y-0.5 !bg-transparent !shadow-none !border-none !p-0">
+                  <div><span class="text-primary font-bold">external</span></div>
+                  <div>&nbsp;&nbsp;interfaces: ens224</div>
+                  <div><span class="text-orange-500 font-bold">dmz</span></div>
+                  <div>&nbsp;&nbsp;interfaces: ens160</div>
+                  <div><span class="text-pink-500 font-bold">internal</span></div>
+                  <div>&nbsp;&nbsp;interfaces: ens192</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========== 第9页：SNAT配置 ========== -->
+      <section class="slide">
+        <div class="max-w-5xl w-full mx-auto relative z-10 h-full flex flex-col justify-center">
+          <div class="fade-in-up mb-2">
+            <span class="text-primary font-bold text-lg tracking-wider">08</span>
+            <span class="text-slate-400 text-base ml-2">/ 12</span>
+          </div>
+          <h2 class="fade-in-up delay-100 text-3xl font-bold text-dark mb-4">SNAT 配置：内网 / DMZ 共享上网</h2>
+
+          <div class="fade-in-up delay-200 grid grid-cols-2 gap-5">
+            <div class="space-y-3">
+              <div class="glass-card p-4">
+                <h3 class="compact-title font-bold text-dark mb-2">🔄 SNAT 工作原理</h3>
+                <div class="space-y-2 compact-text text-slate-700">
+                  <div class="flex items-start gap-2">
+                    <span class="text-primary font-bold">1</span>
+                    <span>内网主机 <span class="font-mono text-primary">192.168.10.50</span> 发起访问 8.8.8.8</span>
+                  </div>
+                  <div class="flex items-start gap-2">
+                    <span class="text-primary font-bold">2</span>
+                    <span>数据包到达网关，<strong>将源 IP 替换为公网 IP</strong> <span class="font-mono text-primary">203.0.113.10</span></span>
+                  </div>
+                  <div class="flex items-start gap-2">
+                    <span class="text-primary font-bold">3</span>
+                    <span>服务器响应到 203.0.113.10，网关<strong>查 NAT 表还原目的 IP</strong></span>
+                  </div>
+                  <div class="flex items-start gap-2">
+                    <span class="text-primary font-bold">4</span>
+                    <span>响应包转发回内网主机 <span class="font-mono text-primary">192.168.10.50</span></span>
+                  </div>
+                </div>
+              </div>
+              <div class="glass-card p-3 bg-blue-50 border-blue-200">
+                <h4 class="text-sm font-bold text-blue-900 mb-1">💡 MASQUERADE vs SNAT</h4>
+                <div class="compact-text text-blue-800 space-y-1">
+                  <p><strong>MASQUERADE</strong>：动态使用出口接口 IP，适合 DHCP/拨号</p>
+                  <p><strong>SNAT</strong>：固定指定 IP，性能略高，适合静态公网 IP</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="space-y-3">
+              <div class="code-block compact-code">
+                <span class="comment"># 对外网区域开启地址伪装（MASQUERADE）</span><br>
+                <span class="cmd">firewall-cmd</span> <span class="arg">--permanent</span> <span class="arg">--zone=</span>external <span class="arg">--add-masquerade</span><br><br>
+
+                <span class="comment"># 配置 DMZ 区域服务策略</span><br>
+                <span class="comment"># 允许 DMZ 访问外网 HTTP/HTTPS（软件更新）</span><br>
+                <span class="cmd">firewall-cmd</span> <span class="arg">--permanent</span> <span class="arg">--zone=</span>dmz <span class="arg">--add-service=</span>http<br>
+                <span class="cmd">firewall-cmd</span> <span class="arg">--permanent</span> <span class="arg">--zone=</span>dmz <span class="arg">--add-service=</span>https<br><br>
+
+                <span class="comment"># 允许内网访问 DNS（解析域名）</span><br>
+                <span class="cmd">firewall-cmd</span> <span class="arg">--permanent</span> <span class="arg">--zone=</span>internal <span class="arg">--add-service=</span>dns<br><br>
+
+                <span class="comment"># 重载生效</span><br>
+                <span class="cmd">firewall-cmd</span> <span class="arg">--reload</span><br><br>
+
+                <span class="comment"># 验证 MASQUERADE 状态</span><br>
+                <span class="cmd">firewall-cmd</span> <span class="arg">--zone=</span>external <span class="arg">--query-masquerade</span> <span class="comment"># 输出 yes</span>
+              </div>
+              <div class="glass-card p-3">
+                <h4 class="text-sm font-bold text-dark mb-1">✅ 验证方法</h4>
+                <div class="code-block compact-code !p-2 !border-l-4 !border-blue-500">
+                  <span class="comment"># 在内网 PC 或 DMZ 服务器上测试</span><br>
+                  <span class="cmd">ping</span> <span class="string">8.8.8.8</span> <span class="arg">-c</span> <span class="string">4</span><br>
+                  <span class="cmd">curl</span> <span class="string">http://www.example.com</span><br><br>
+                  <span class="comment"># 在网关外网接口抓包验证源 IP 转换</span><br>
+                  <span class="cmd">tcpdump</span> <span class="arg">-i</span> ens224 <span class="arg">-n</span> icmp
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========== 第10页：DNAT配置 ========== -->
+      <section class="slide">
+        <div class="max-w-5xl w-full mx-auto relative z-10 h-full flex flex-col justify-center">
+          <div class="fade-in-up mb-2">
+            <span class="text-primary font-bold text-lg tracking-wider">09</span>
+            <span class="text-slate-400 text-base ml-2">/ 12</span>
+          </div>
+          <h2 class="fade-in-up delay-100 text-3xl font-bold text-dark mb-4">DNAT 配置：端口转发与外部访问</h2>
+
+          <div class="fade-in-up delay-200 grid grid-cols-5 gap-4">
+            <div class="col-span-2 space-y-2">
+              <div class="glass-card p-3">
+                <h3 class="compact-title font-bold text-dark mb-2">🎯 三大转发场景</h3>
+                <div class="space-y-2">
+                  <div class="p-2.5 bg-emerald-50 rounded-lg border border-emerald-100">
+                    <div class="flex items-center gap-2 mb-1">
+                      <span class="tag tag-green text-xs">场景一</span>
+                      <span class="text-sm font-bold text-dark">Web 服务转发</span>
+                    </div>
+                    <p class="compact-text text-slate-600">外网 80/443 → DMZ 服务器 192.168.1.100</p>
+                  </div>
+                  <div class="p-2.5 bg-blue-50 rounded-lg border border-blue-100">
+                    <div class="flex items-center gap-2 mb-1">
+                      <span class="tag tag-blue text-xs">场景二</span>
+                      <span class="text-sm font-bold text-dark">SSH 跳板机</span>
+                    </div>
+                    <p class="compact-text text-slate-600">外网 2222 → 内网管理机 192.168.10.10:22</p>
+                  </div>
+                  <div class="p-2.5 bg-orange-50 rounded-lg border border-orange-100">
+                    <div class="flex items-center gap-2 mb-1">
+                      <span class="tag tag-orange text-xs">场景三</span>
+                      <span class="text-sm font-bold text-dark">数据库远程</span>
+                    </div>
+                    <p class="compact-text text-slate-600">限定 IP 访问 3306 → DMZ 数据库 192.168.1.102</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="col-span-3 space-y-2">
+              <div class="code-block compact-code">
+                <span class="comment"># ========== 场景一：Web 服务转发 ==========</span><br>
+                <span class="cmd">firewall-cmd</span> <span class="arg">--permanent</span> <span class="arg">--zone=</span>external \<br>
+                &nbsp;&nbsp;<span class="arg">--add-forward-port=</span>port=<span class="string">80</span>:proto=<span class="string">tcp</span>:toaddr=<span class="string">192.168.1.100</span>:toport=<span class="string">80</span><br><br>
+
+                <span class="cmd">firewall-cmd</span> <span class="arg">--permanent</span> <span class="arg">--zone=</span>external \<br>
+                &nbsp;&nbsp;<span class="arg">--add-forward-port=</span>port=<span class="string">443</span>:proto=<span class="string">tcp</span>:toaddr=<span class="string">192.168.1.100</span>:toport=<span class="string">443</span><br><br>
+
+                <span class="comment"># ========== 场景二：SSH 跳板机 ==========</span><br>
+                <span class="cmd">firewall-cmd</span> <span class="arg">--permanent</span> <span class="arg">--zone=</span>external \<br>
+                &nbsp;&nbsp;<span class="arg">--add-forward-port=</span>port=<span class="string">2222</span>:proto=<span class="string">tcp</span>:toaddr=<span class="string">192.168.10.10</span>:toport=<span class="string">22</span><br><br>
+
+                <span class="comment"># ========== 场景三：限定 IP 的数据库转发 ==========</span><br>
+                <span class="cmd">firewall-cmd</span> <span class="arg">--permanent</span> <span class="arg">--zone=</span>external \<br>
+                &nbsp;&nbsp;<span class="arg">--add-rich-rule=</span><span class="string">'rule family="ipv4" source address="203.0.113.50" destination address="203.0.113.10" forward-port port="3306" protocol="tcp" to-address="192.168.1.102" to-port="3306"'</span><br><br>
+
+                <span class="cmd">firewall-cmd</span> <span class="arg">--reload</span>
+              </div>
+              <div class="grid grid-cols-2 gap-2">
+                <div class="glass-card p-2">
+                  <h4 class="text-xs font-bold text-dark mb-1">🔍 查看转发规则</h4>
+                  <div class="code-block compact-code !p-1.5 !text-xs">
+                    <span class="cmd">firewall-cmd</span> <span class="arg">--zone=</span>external <span class="arg">--list-forward-ports</span>
+                  </div>
+                </div>
+                <div class="glass-card p-2">
+                  <h4 class="text-xs font-bold text-dark mb-1">🔍 查看富规则</h4>
+                  <div class="code-block compact-code !p-1.5 !text-xs">
+                    <span class="cmd">firewall-cmd</span> <span class="arg">--zone=</span>external <span class="arg">--list-rich-rules</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========== 第11页：测试验证 ========== -->
+      <section class="slide">
+        <div class="max-w-5xl w-full mx-auto relative z-10 h-full flex flex-col justify-center">
+          <div class="fade-in-up mb-2">
+            <span class="text-primary font-bold text-lg tracking-wider">10</span>
+            <span class="text-slate-400 text-base ml-2">/ 12</span>
+          </div>
+          <h2 class="fade-in-up delay-100 text-3xl font-bold text-dark mb-4">测试验证与故障排查</h2>
+
+          <div class="fade-in-up delay-200 grid grid-cols-2 gap-4">
+            <div class="space-y-3">
+              <div class="glass-card p-4">
+                <h3 class="compact-title font-bold text-dark mb-3">✅ 四项核心测试</h3>
+                <div class="space-y-2.5">
+                  <div class="flex gap-3 items-start">
+                    <div class="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-base flex-shrink-0">1</div>
+                    <div>
+                      <h4 class="text-sm font-bold text-dark">内网 PC 访问互联网</h4>
+                      <p class="compact-text text-slate-600">验证 SNAT / MASQUERADE 生效</p>
+                      <div class="code-block compact-code !p-1.5 mt-1">ping 8.8.8.8 && curl http://example.com</div>
+                    </div>
+                  </div>
+                  <div class="flex gap-3 items-start">
+                    <div class="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-base flex-shrink-0">2</div>
+                    <div>
+                      <h4 class="text-sm font-bold text-dark">外网访问 DMZ Web</h4>
+                      <p class="compact-text text-slate-600">验证 DNAT 端口转发生效</p>
+                      <div class="code-block compact-code !p-1.5 mt-1">curl http://203.0.113.10</div>
+                    </div>
+                  </div>
+                  <div class="flex gap-3 items-start">
+                    <div class="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-base flex-shrink-0">3</div>
+                    <div>
+                      <h4 class="text-sm font-bold text-dark">区域隔离验证</h4>
+                      <p class="compact-text text-slate-600">外网不可直达内网，DMZ 不可访内网</p>
+                      <div class="code-block compact-code !p-1.5 mt-1">ping 192.168.10.1 <span class="comment"># 应失败</span></div>
+                    </div>
+                  </div>
+                  <div class="flex gap-3 items-start">
+                    <div class="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-base flex-shrink-0">4</div>
+                    <div>
+                      <h4 class="text-sm font-bold text-dark">SSH 跳板测试</h4>
+                      <p class="compact-text text-slate-600">验证非标准端口 DNAT</p>
+                      <div class="code-block compact-code !p-1.5 mt-1">ssh -p 2222 admin@203.0.113.10</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="space-y-3">
+              <div class="glass-card p-4 border-l-4 border-danger">
+                <h3 class="compact-title font-bold text-dark mb-3 flex items-center gap-2">
+                  <span class="text-danger">🚨</span> 常见故障排查
+                </h3>
+                <div class="space-y-2.5">
+                  <div class="p-2.5 bg-red-50 rounded-lg">
+                    <h4 class="text-sm font-bold text-danger mb-1">内网无法上网</h4>
+                    <ul class="compact-text text-slate-700 space-y-0.5 list-disc list-inside">
+                      <li>检查 <span class="font-mono">ip_forward</span> 是否为 1</li>
+                      <li>确认外网区域已 <span class="font-mono">--add-masquerade</span></li>
+                      <li>检查内网 PC 网关是否指向 192.168.10.1</li>
+                      <li>确认接口在正确区域 <span class="font-mono">--get-active-zones</span></li>
+                    </ul>
+                  </div>
+                  <div class="p-2.5 bg-orange-50 rounded-lg">
+                    <h4 class="text-sm font-bold text-orange-700 mb-1">DNAT 转发不生效</h4>
+                    <ul class="compact-text text-slate-700 space-y-0.5 list-disc list-inside">
+                      <li>检查目标服务器是否监听端口 <span class="font-mono">ss -tlnp</span></li>
+                      <li>确认目标服务器网关指向防火墙（回程路由）</li>
+                      <li>检查富规则语法是否正确</li>
+                      <li>使用 <span class="font-mono">tcpdump</span> 抓包分析数据包流向</li>
+                    </ul>
+                  </div>
+                  <div class="p-2.5 bg-blue-50 rounded-lg">
+                    <h4 class="text-sm font-bold text-blue-700 mb-1">配置未持久化</h4>
+                    <ul class="compact-text text-slate-700 space-y-0.5 list-disc list-inside">
+                      <li>是否加了 <span class="font-mono">--permanent</span> 参数？</li>
+                      <li>修改后是否执行了 <span class="font-mono">--reload</span>？</li>
+                      <li>检查 <span class="font-mono">/etc/firewalld/zones/</span> 下 XML 文件</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========== 第12页：总结 ========== -->
+      <section class="slide">
+        <div class="max-w-4xl w-full mx-auto relative z-10 h-full flex flex-col justify-center text-center">
+          <div class="fade-in-up mb-2">
+            <span class="text-primary font-bold text-lg tracking-wider">11</span>
+            <span class="text-slate-400 text-base ml-2">/ 12</span>
+          </div>
+          <h2 class="fade-in-up delay-100 text-3xl font-bold text-dark mb-6">课程总结与核心要点</h2>
+
+          <div class="fade-in-up delay-200 grid grid-cols-3 gap-4 mb-6">
+            <div class="glass-card p-4 hover:shadow-lg transition-shadow">
+              <div class="w-12 h-12 mx-auto mb-2 rounded-full bg-emerald-100 flex items-center justify-center text-2xl">🛡️</div>
+              <h3 class="text-lg font-bold text-dark mb-1">区域隔离</h3>
+              <p class="compact-text text-slate-600">external / dmz / internal<br>三层安全域划分</p>
+            </div>
+            <div class="glass-card p-4 hover:shadow-lg transition-shadow">
+              <div class="w-12 h-12 mx-auto mb-2 rounded-full bg-blue-100 flex items-center justify-center text-2xl">🔄</div>
+              <h3 class="text-lg font-bold text-dark mb-1">地址转换</h3>
+              <p class="compact-text text-slate-600">SNAT + MASQUERADE 共享上网<br>DNAT 端口转发暴露服务</p>
+            </div>
+            <div class="glass-card p-4 hover:shadow-lg transition-shadow">
+              <div class="w-12 h-12 mx-auto mb-2 rounded-full bg-orange-100 flex items-center justify-center text-2xl">🔒</div>
+              <h3 class="text-lg font-bold text-dark mb-1">策略管控</h3>
+              <p class="compact-text text-slate-600">默认拒绝 · 显式允许<br>富规则精细化访问控制</p>
+            </div>
+          </div>
+
+          <div class="fade-in-up delay-300 glass-card p-5 text-left max-w-2xl mx-auto">
+            <h3 class="text-lg font-bold text-dark mb-3 text-center">📋 配置检查清单（Checklist）</h3>
+            <div class="grid grid-cols-2 gap-x-4 gap-y-1.5 compact-text text-slate-700">
+              <div class="flex items-center gap-2"><span class="text-primary">☑</span> IP 转发已开启 (sysctl)</div>
+              <div class="flex items-center gap-2"><span class="text-primary">☑</span> 网卡绑定到正确区域</div>
+              <div class="flex items-center gap-2"><span class="text-primary">☑</span> external 区域开启 masquerade</div>
+              <div class="flex items-center gap-2"><span class="text-primary">☑</span> DNAT forward-port 规则已添加</div>
+              <div class="flex items-center gap-2"><span class="text-primary">☑</span> 所有配置使用 --permanent</div>
+              <div class="flex items-center gap-2"><span class="text-primary">☑</span> firewall-cmd --reload 已执行</div>
+              <div class="flex items-center gap-2"><span class="text-primary">☑</span> 重启后验证配置持久化</div>
+              <div class="flex items-center gap-2"><span class="text-primary">☑</span> 各区域连通性测试通过</div>
+            </div>
+          </div>
+
+          <div class="fade-in-up delay-400 mt-6">
+            <p class="text-lg text-slate-500">感谢聆听 · 实践出真知</p>
+            <p class="compact-text text-slate-400 mt-1">基于 RHEL 9 · firewalld · nftables 后端</p>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+
+  <div class="page-num" id="pageNum">01 / 12</div>
+
+  <script>
+    (function() {
+      let currentSlide = 0;
+      const totalSlides = 12;
+      const wrapper = document.getElementById('slidesWrapper');
+      const dots = document.querySelectorAll('.nav-dot');
+      const pageNum = document.getElementById('pageNum');
+      const progressBar = document.getElementById('progressBar');
+      let isAnimating = false;
+      let touchStartY = 0;
+
+      function updateSlide(index) {
+        if (index < 0 || index >= totalSlides || isAnimating) return;
+        isAnimating = true;
+        currentSlide = index;
+
+        wrapper.style.transform = `translateY(-${index * 100}vh)`;
+
+        dots.forEach((dot, i) => {
+          dot.classList.toggle('active', i === index);
+        });
+
+        pageNum.textContent = `${String(index + 1).padStart(2, '0')} / ${totalSlides}`;
+        progressBar.style.width = `${((index + 1) / totalSlides) * 100}%`;
+
+        document.querySelectorAll('.slide').forEach((slide, i) => {
+          slide.classList.toggle('active', i === index);
+        });
+
+        setTimeout(() => { isAnimating = false; }, 800);
+      }
+
+      let wheelTimeout;
+      window.addEventListener('wheel', (e) => {
+        if (wheelTimeout) return;
+        wheelTimeout = setTimeout(() => {
+          if (e.deltaY > 30) updateSlide(currentSlide + 1);
+          else if (e.deltaY < -30) updateSlide(currentSlide - 1);
+          wheelTimeout = null;
+        }, 50);
+      }, { passive: true });
+
+      window.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowDown' || e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ' ') {
+          e.preventDefault();
+          updateSlide(currentSlide + 1);
+        } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft' || e.key === 'PageUp') {
+          e.preventDefault();
+          updateSlide(currentSlide - 1);
+        } else if (e.key === 'Home') {
+          e.preventDefault();
+          updateSlide(0);
+        } else if (e.key === 'End') {
+          e.preventDefault();
+          updateSlide(totalSlides - 1);
+        }
+      });
+
+      window.addEventListener('touchstart', (e) => {
+        touchStartY = e.touches[0].clientY;
+      }, { passive: true });
+
+      window.addEventListener('touchend', (e) => {
+        const diff = touchStartY - e.changedTouches[0].clientY;
+        if (Math.abs(diff) > 50) {
+          if (diff > 0) updateSlide(currentSlide + 1);
+          else updateSlide(currentSlide - 1);
+        }
+      }, { passive: true });
+
+      window.goToSlide = updateSlide;
+
+      setTimeout(() => {
+        document.querySelector('.slide').classList.add('active');
+      }, 100);
+    })();
+  </script>
+</body>
+</html>

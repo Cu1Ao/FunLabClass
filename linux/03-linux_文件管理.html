@@ -1,0 +1,1033 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.5, maximum-scale=3.0, user-scalable=yes">
+    <title>Linux文件管理 - 试讲演示</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Noto Sans SC', sans-serif;
+            background: #ffffff;
+            color: #1e293b;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        .scroll-container {
+            height: 100vh;
+            overflow-y: scroll;
+            scroll-snap-type: y mandatory;
+            scroll-behavior: smooth;
+        }
+        .page-section {
+            min-height: 100vh;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            padding: 24px 48px;
+            scroll-snap-align: start;
+            opacity: 0;
+            transform: translateY(30px);
+            transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .page-section.active {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #10b981; border-radius: 4px; }
+
+        .bg-canvas {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 0;
+        }
+
+        .glow-text {
+            text-shadow: 0 0 20px rgba(16, 185, 129, 0.25), 0 0 40px rgba(16, 185, 129, 0.1);
+        }
+        .card-glow {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .card-glow:hover {
+            box-shadow: 0 8px 30px rgba(16, 185, 129, 0.2);
+            transform: translateY(-4px);
+            border-color: rgba(16, 185, 129, 0.4);
+        }
+
+        @keyframes flowDash {
+            to { stroke-dashoffset: -120; }
+        }
+        .flow-line {
+            stroke-dasharray: 12 6;
+            animation: flowDash 2.5s linear infinite;
+        }
+        @keyframes pulseNode {
+            0%, 100% { opacity: 0.7; }
+            50% { opacity: 1; }
+        }
+        .pulse-node { animation: pulseNode 2s ease-in-out infinite; }
+
+        .nav-dots {
+            position: fixed;
+            right: 24px;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+        .nav-dot {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            border: 2.5px solid #cbd5e1;
+            background: transparent;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .nav-dot.active {
+            background: #10b981;
+            border-color: #10b981;
+            box-shadow: 0 0 12px rgba(16, 185, 129, 0.5);
+        }
+
+        .page-counter {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(255,255,255,0.95);
+            border: 2px solid #e2e8f0;
+            padding: 8px 16px;
+            border-radius: 24px;
+            font-size: 16px;
+            font-weight: 700;
+            color: #64748b;
+            z-index: 1000;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        }
+        .page-counter span { color: #10b981; }
+
+        .terminal {
+            background: #f8fafc;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            position: relative;
+            overflow: hidden;
+        }
+        .terminal::before {
+            content: '● ● ●';
+            position: absolute;
+            top: 12px;
+            left: 16px;
+            color: #cbd5e1;
+            font-size: 12px;
+            letter-spacing: 8px;
+        }
+        .terminal-body {
+            padding: 40px 20px 20px;
+            font-family: 'Courier New', monospace;
+            font-size: 16px;
+            line-height: 1.8;
+        }
+        .cmd-prompt { color: #10b981; font-weight: bold; }
+        .cmd-red { color: #ef4444; font-weight: bold; }
+        .cmd-green { color: #059669; font-weight: bold; }
+        .cmd-blue { color: #3b82f6; font-weight: bold; }
+        .cmd-amber { color: #f59e0b; font-weight: bold; }
+
+        .grid-bg {
+            background-image:
+                linear-gradient(rgba(16, 185, 129, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(16, 185, 129, 0.03) 1px, transparent 1px);
+            background-size: 50px 50px;
+        }
+
+        .perm-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 12px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            font-weight: bold;
+            margin: 3px;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(10px); }
+        }
+        .bounce-anim { animation: bounce 2.5s ease-in-out infinite; }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-8px); }
+        }
+        .float-anim { animation: float 4s ease-in-out infinite; }
+
+        .quiz-answer {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.4s ease, opacity 0.3s ease;
+            opacity: 0;
+        }
+        .quiz-answer.show {
+            max-height: 160px;
+            opacity: 1;
+        }
+
+        .section-label {
+            display: inline-block;
+            padding: 6px 16px;
+            background: #f0fdf4;
+            border: 2px solid #10b981;
+            border-radius: 24px;
+            color: #059669;
+            font-size: 15px;
+            font-weight: 700;
+            letter-spacing: 1px;
+        }
+
+        .warning-card {
+            background: linear-gradient(135deg, #fef2f2 0%, #fff5f5 100%);
+            border: 3px solid #ef4444;
+            border-radius: 14px;
+        }
+
+        .quote-card {
+            background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%);
+            border: 3px solid #10b981;
+            border-radius: 18px;
+            position: relative;
+            overflow: hidden;
+        }
+        .quote-card::before {
+            content: '"';
+            position: absolute;
+            top: -10px;
+            right: 24px;
+            font-size: 100px;
+            color: rgba(16, 185, 129, 0.08);
+            font-family: serif;
+            line-height: 1;
+        }
+    </style>
+</head>
+<body>
+
+<div class="nav-dots">
+    <div class="nav-dot active" data-page="0"></div>
+    <div class="nav-dot" data-page="1"></div>
+    <div class="nav-dot" data-page="2"></div>
+    <div class="nav-dot" data-page="3"></div>
+    <div class="nav-dot" data-page="4"></div>
+    <div class="nav-dot" data-page="5"></div>
+    <div class="nav-dot" data-page="6"></div>
+    <div class="nav-dot" data-page="7"></div>
+    <div class="nav-dot" data-page="8"></div>
+</div>
+
+<div class="page-counter">
+    <span id="current-page">1</span> / <span id="total-pages">9</span>
+</div>
+
+<div class="scroll-container" id="scroll-container">
+
+<!-- ==================== PAGE 1: HERO ==================== -->
+<section class="page-section active" id="page-0">
+    <canvas class="bg-canvas" id="hero-canvas"></canvas>
+    <div class="relative z-10 text-center px-4 max-w-5xl">
+        <div class="mb-6 inline-block">
+            <span class="px-5 py-2 rounded-full border-2 border-emerald-500/40 text-emerald-600 text-base tracking-widest uppercase bg-emerald-50 font-bold">
+                Linux Operating System
+            </span>
+        </div>
+        <h1 class="text-6xl font-black mb-6 tracking-tight">
+            <span class="text-slate-800">Linux</span>
+            <span class="text-emerald-600 glow-text">文件管理</span>
+        </h1>
+        <p class="text-2xl text-slate-500 mb-6 font-light">
+            从国产操作系统之光，到企业级权限管理实战
+        </p>
+        <div class="flex items-center justify-center gap-10 mt-12 text-base text-slate-400">
+            <div class="flex items-center gap-3">
+                <svg class="w-6 h-6 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                <span>15分钟试讲</span>
+            </div>
+            <div class="flex items-center gap-3">
+                <svg class="w-6 h-6 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                <span>课程思政融入</span>
+            </div>
+            <div class="flex items-center gap-3">
+                <svg class="w-6 h-6 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                <span>AI课堂辅助</span>
+            </div>
+        </div>
+        <div class="mt-16 bounce-anim">
+            <svg class="w-7 h-7 mx-auto text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"/></svg>
+        </div>
+    </div>
+    <div class="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-white to-transparent z-10"></div>
+</section>
+
+<!-- ==================== PAGE 2: 导入 ==================== -->
+<section class="page-section" id="page-1">
+    <div class="max-w-6xl w-full px-8">
+        <div class="text-center mb-5">
+            <div class="section-label mb-2">环节一 · 02:00</div>
+            <h2 class="text-4xl font-bold text-slate-800 mt-2">国产操作系统之光</h2>
+            <div class="w-16 h-1.5 bg-emerald-500 mx-auto mt-3 rounded-full"></div>
+        </div>
+        <div class="flex flex-col lg:flex-row gap-8 items-center">
+            <div class="lg:w-1/2 space-y-4">
+                <div class="card-glow rounded-xl p-5">
+                    <h3 class="text-xl font-bold text-emerald-700 mb-3">为什么操作系统是"数字底座"？</h3>
+                    <p class="text-lg text-slate-600 leading-relaxed">
+                        2024年，鸿蒙生态设备突破 <span class="text-emerald-600 font-bold text-xl">10亿台</span>。从手机到汽车，一套系统打通所有场景。
+                    </p>
+                </div>
+                <div class="card-glow rounded-xl p-5">
+                    <p class="text-lg text-slate-600 leading-relaxed">
+                        十年前我们面临 <span class="text-red-500 font-bold">"缺芯少魂"</span> ——芯片被卡，系统全是国外的。
+                    </p>
+                </div>
+                <div class="card-glow rounded-xl p-5 border-l-4 border-emerald-500">
+                    <p class="text-lg text-slate-700 font-medium leading-relaxed">
+                        Linux 是国产操作系统（麒麟、统信 UOS）的技术源头。掌握操作系统，就是掌握 <span class="text-emerald-600 font-bold">数字主权</span>。
+                    </p>
+                </div>
+                <div class="bg-amber-50 border-2 border-amber-300 rounded-xl p-4">
+                    <p class="text-lg text-amber-800">
+                        <span class="font-bold">设问：</span>权限管理混乱，就像大楼装了国产防盗门，却<span class="font-bold text-red-500">人人有钥匙</span>。
+                    </p>
+                </div>
+                <div class="text-center">
+                    <p class="text-xl text-slate-700 font-medium">
+                        <span class="text-emerald-600 font-bold">核心任务：</span>如何发<span class="text-emerald-600 font-bold">"正确的钥匙"</span>？
+                    </p>
+                </div>
+                <div class="flex gap-3 flex-wrap justify-center">
+                    <span class="perm-badge bg-emerald-50 text-emerald-700 border-2 border-emerald-300">家国情怀</span>
+                    <span class="perm-badge bg-emerald-50 text-emerald-700 border-2 border-emerald-300">职业使命</span>
+                    <span class="perm-badge bg-emerald-50 text-emerald-700 border-2 border-emerald-300">数字主权</span>
+                </div>
+            </div>
+            <div class="lg:w-1/2 flex justify-center">
+                <svg viewBox="0 0 360 320" class="w-full max-w-sm h-auto float-anim">
+                    <defs>
+                        <filter id="g1"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+                    </defs>
+                    <circle cx="180" cy="160" r="45" fill="#f0fdf4" stroke="#10b981" stroke-width="2.5" filter="url(#g1)"/>
+                    <text x="180" y="155" text-anchor="middle" fill="#059669" font-size="12" font-weight="bold">鸿蒙</text>
+                    <text x="180" y="172" text-anchor="middle" fill="#059669" font-size="10">HarmonyOS</text>
+                    <line x1="180" y1="115" x2="180" y2="65" stroke="#10b981" stroke-width="2" opacity="0.4" class="flow-line"/>
+                    <rect x="155" y="30" width="50" height="75" rx="8" fill="#fff" stroke="#10b981" stroke-width="2"/>
+                    <text x="180" y="68" text-anchor="middle" font-size="24">📱</text>
+                    <text x="180" y="115" text-anchor="middle" fill="#10b981" font-size="9" font-weight="bold">手机</text>
+                    <line x1="220" y1="140" x2="290" y2="100" stroke="#10b981" stroke-width="2" opacity="0.4" class="flow-line"/>
+                    <rect x="270" y="70" width="70" height="50" rx="8" fill="#fff" stroke="#10b981" stroke-width="2"/>
+                    <text x="305" y="100" text-anchor="middle" font-size="20">🚗</text>
+                    <text x="305" y="135" text-anchor="middle" fill="#10b981" font-size="9" font-weight="bold">车机</text>
+                    <line x1="140" y1="140" x2="75" y2="100" stroke="#10b981" stroke-width="2" opacity="0.4" class="flow-line"/>
+                    <circle cx="60" cy="90" r="28" fill="#fff" stroke="#10b981" stroke-width="2"/>
+                    <text x="60" y="100" text-anchor="middle" font-size="18">⌚</text>
+                    <text x="60" y="130" text-anchor="middle" fill="#10b981" font-size="9" font-weight="bold">手表</text>
+                    <line x1="180" y1="205" x2="180" y2="255" stroke="#10b981" stroke-width="2" opacity="0.4" class="flow-line"/>
+                    <rect x="150" y="250" width="60" height="45" rx="6" fill="#fff" stroke="#10b981" stroke-width="2"/>
+                    <text x="180" y="278" text-anchor="middle" font-size="20">🏠</text>
+                    <text x="180" y="305" text-anchor="middle" fill="#10b981" font-size="9" font-weight="bold">智能家居</text>
+                    <line x1="225" y1="190" x2="295" y2="220" stroke="#10b981" stroke-width="2" opacity="0.4" class="flow-line"/>
+                    <rect x="280" y="210" width="60" height="42" rx="6" fill="#fff" stroke="#10b981" stroke-width="2"/>
+                    <text x="310" y="236" text-anchor="middle" font-size="18">💻</text>
+                    <text x="310" y="265" text-anchor="middle" fill="#10b981" font-size="9" font-weight="bold">平板</text>
+                    <line x1="135" y1="190" x2="70" y2="220" stroke="#10b981" stroke-width="2" opacity="0.4" class="flow-line"/>
+                    <rect x="25" y="210" width="55" height="40" rx="5" fill="#fff" stroke="#10b981" stroke-width="2"/>
+                    <text x="52" y="235" text-anchor="middle" font-size="16">📺</text>
+                    <text x="52" y="262" text-anchor="middle" fill="#10b981" font-size="9" font-weight="bold">智慧屏</text>
+                    <circle cx="180" cy="160" r="145" fill="none" stroke="#10b981" stroke-width="0.8" stroke-dasharray="8 4" opacity="0.2"/>
+                    <text x="180" y="315" text-anchor="middle" fill="#94a3b8" font-size="10">万物互联 · 10亿+ 设备</text>
+                </svg>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ==================== PAGE 3: AI课堂 ==================== -->
+<section class="page-section grid-bg" id="page-2">
+    <div class="max-w-6xl w-full px-8">
+        <div class="text-center mb-4">
+            <div class="section-label mb-2">环节二 · 03:00</div>
+            <h2 class="text-4xl font-bold text-slate-800 mt-2">AI 课堂——权限密码</h2>
+            <div class="w-16 h-1.5 bg-emerald-500 mx-auto mt-3 rounded-full"></div>
+        </div>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="space-y-4">
+                <div class="bg-gradient-to-br from-emerald-50 to-white border-2 border-emerald-400 rounded-xl p-5 relative overflow-hidden">
+                    <div class="absolute top-3 left-5 text-emerald-600 font-bold text-sm">🤖 AI 微课播放中...</div>
+                    <div class="mt-8 flex items-center gap-4">
+                        <div class="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center text-2xl">🤖</div>
+                        <div>
+                            <div class="font-bold text-slate-800 text-base">AI 助教 · 权限精灵</div>
+                            <div class="text-emerald-600 text-sm">正在讲解 UGO 模型...</div>
+                        </div>
+                    </div>
+                    <div class="mt-4 bg-white rounded-lg p-4 border border-emerald-100">
+                        <p class="text-slate-600 text-base leading-relaxed">
+                            "这串密码 <span class="font-mono text-emerald-600 bg-emerald-50 px-2 py-1 rounded font-bold">-rw-r--r--</span> 分三段，就像大楼的三层住户..."
+                        </p>
+                    </div>
+                    <div class="mt-3 flex items-center gap-3">
+                        <div class="flex-1 h-2.5 bg-emerald-100 rounded-full overflow-hidden">
+                            <div class="h-full w-2/3 bg-emerald-500 rounded-full"></div>
+                        </div>
+                        <span class="text-slate-400 text-sm">02:00 / 03:00</span>
+                    </div>
+                </div>
+                <div class="grid grid-cols-3 gap-3">
+                    <div class="card-glow rounded-xl p-4 text-center">
+                        <div class="text-4xl mb-2">👤</div>
+                        <div class="font-bold text-slate-800 text-base">我 (Owner)</div>
+                        <div class="text-emerald-600 text-sm font-bold mt-1">房东</div>
+                        <div class="text-slate-400 text-sm">最高控制权</div>
+                    </div>
+                    <div class="card-glow rounded-xl p-4 text-center">
+                        <div class="text-4xl mb-2">👥</div>
+                        <div class="font-bold text-slate-800 text-base">们 (Group)</div>
+                        <div class="text-emerald-600 text-sm font-bold mt-1">邻居</div>
+                        <div class="text-slate-400 text-sm">协作共享</div>
+                    </div>
+                    <div class="card-glow rounded-xl p-4 text-center">
+                        <div class="text-4xl mb-2">🌐</div>
+                        <div class="font-bold text-slate-800 text-base">他 (Others)</div>
+                        <div class="text-emerald-600 text-sm font-bold mt-1">访客</div>
+                        <div class="text-slate-400 text-sm">最小权限</div>
+                    </div>
+                </div>
+                <div class="card-glow rounded-xl p-4">
+                    <h4 class="font-bold text-slate-800 text-base mb-3">三种权限动作</h4>
+                    <div class="flex justify-around">
+                        <div class="text-center">
+                            <div class="w-12 h-12 rounded-lg bg-emerald-50 flex items-center justify-center mx-auto mb-2 border-2 border-emerald-200">
+                                <span class="text-emerald-600 font-bold text-xl">r</span>
+                            </div>
+                            <div class="text-base text-slate-700">看</div>
+                            <div class="text-emerald-600 font-mono font-bold text-base">= 4</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="w-12 h-12 rounded-lg bg-emerald-50 flex items-center justify-center mx-auto mb-2 border-2 border-emerald-200">
+                                <span class="text-emerald-600 font-bold text-xl">w</span>
+                            </div>
+                            <div class="text-base text-slate-700">写</div>
+                            <div class="text-emerald-600 font-mono font-bold text-base">= 2</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="w-12 h-12 rounded-lg bg-emerald-50 flex items-center justify-center mx-auto mb-2 border-2 border-emerald-200">
+                                <span class="text-emerald-600 font-bold text-xl">x</span>
+                            </div>
+                            <div class="text-base text-slate-700">执行</div>
+                            <div class="text-emerald-600 font-mono font-bold text-base">= 1</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="space-y-4">
+                <div class="terminal">
+                    <div class="terminal-body">
+                        <span class="cmd-prompt">$</span> <span class="text-slate-700">ls -l /etc/passwd</span><br>
+                        <span class="cmd-red">-</span><span class="cmd-green">rw-</span><span class="cmd-blue">r--</span><span class="cmd-amber">r--</span> <span class="text-slate-500">1 root root 2875 Mar 15 09:20</span><br>
+                        <div class="mt-3 flex gap-4 text-sm">
+                            <span class="cmd-green font-bold">↑ 我 = 6</span>
+                            <span class="cmd-blue font-bold">↑ 们 = 4</span>
+                            <span class="cmd-amber font-bold">↑ 他 = 4</span>
+                        </div>
+                        <div class="mt-2 text-slate-500 text-sm">→ 组合权限：<span class="cmd-green font-bold text-base">644</span></div>
+                    </div>
+                </div>
+                <h4 class="font-bold text-slate-800 text-base">常用权限组合速查</h4>
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="card-glow rounded-lg p-4 cursor-pointer">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="font-mono font-bold text-emerald-600 text-xl">755</span>
+                            <span class="perm-badge bg-emerald-50 text-emerald-700 border-2 border-emerald-300 text-xs">程序</span>
+                        </div>
+                        <div class="font-mono text-sm text-slate-600">rwxr-xr-x</div>
+                        <div class="text-sm text-slate-400">房东全能，别人能看能用</div>
+                    </div>
+                    <div class="card-glow rounded-lg p-4 cursor-pointer">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="font-mono font-bold text-emerald-600 text-xl">644</span>
+                            <span class="perm-badge bg-blue-50 text-blue-700 border-2 border-blue-300 text-xs">文档</span>
+                        </div>
+                        <div class="font-mono text-sm text-slate-600">rw-r--r--</div>
+                        <div class="text-sm text-slate-400">房东能改，别人只读</div>
+                    </div>
+                    <div class="card-glow rounded-lg p-4 cursor-pointer">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="font-mono font-bold text-red-500 text-xl">700</span>
+                            <span class="perm-badge bg-red-50 text-red-700 border-2 border-red-300 text-xs">私密</span>
+                        </div>
+                        <div class="font-mono text-sm text-slate-600">rwx------</div>
+                        <div class="text-sm text-slate-400">仅房东 = 保险柜</div>
+                    </div>
+                    <div class="card-glow rounded-lg p-4 cursor-pointer border-red-200">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="font-mono font-bold text-red-600 text-xl">777</span>
+                            <span class="perm-badge bg-red-100 text-red-700 border-2 border-red-400 text-xs">⚠️</span>
+                        </div>
+                        <div class="font-mono text-sm text-slate-600">rwxrwxrwx</div>
+                        <div class="text-sm text-red-400">完全开放 = 危险</div>
+                    </div>
+                </div>
+                <div class="bg-emerald-50 border-2 border-emerald-300 rounded-xl p-4 text-center">
+                    <p class="text-emerald-800 font-bold text-base">口诀</p>
+                    <p class="text-emerald-600 text-lg font-bold">"我 · 们 · 他，4看2写1执行"</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ==================== PAGE 4: 命令图谱 ==================== -->
+<section class="page-section" id="page-3">
+    <div class="max-w-6xl w-full px-8">
+        <div class="text-center mb-4">
+            <div class="section-label mb-2">环节三 · 03:00</div>
+            <h2 class="text-4xl font-bold text-slate-800 mt-2">8 把工具：文件管理命令图谱</h2>
+            <div class="w-16 h-1.5 bg-emerald-500 mx-auto mt-3 rounded-full"></div>
+        </div>
+        <div class="grid grid-cols-4 gap-4 mb-4">
+            <div class="card-glow rounded-xl p-4 text-center">
+                <div class="text-3xl mb-2">🔍</div>
+                <div class="font-mono font-bold text-emerald-600 text-xl">ls</div>
+                <div class="text-base text-slate-700 font-bold">侦查</div>
+                <div class="text-sm text-slate-400">查看目录</div>
+                <div class="mt-1 text-sm text-slate-500 font-mono">-l -a -h</div>
+            </div>
+            <div class="card-glow rounded-xl p-4 text-center">
+                <div class="text-3xl mb-2">📂</div>
+                <div class="font-mono font-bold text-emerald-600 text-xl">cd</div>
+                <div class="text-base text-slate-700 font-bold">移动</div>
+                <div class="text-sm text-slate-400">切换楼层</div>
+                <div class="mt-1 text-sm text-slate-500 font-mono">.. ~ -</div>
+            </div>
+            <div class="card-glow rounded-xl p-4 text-center">
+                <div class="text-3xl mb-2">🏗️</div>
+                <div class="font-mono font-bold text-emerald-600 text-xl">mkdir</div>
+                <div class="text-base text-slate-700 font-bold">建房</div>
+                <div class="text-sm text-slate-400">创建目录</div>
+                <div class="mt-1 text-sm text-slate-500 font-mono">-p</div>
+            </div>
+            <div class="card-glow rounded-xl p-4 text-center">
+                <div class="text-3xl mb-2">📄</div>
+                <div class="font-mono font-bold text-emerald-600 text-xl">touch</div>
+                <div class="text-base text-slate-700 font-bold">占位</div>
+                <div class="text-sm text-slate-400">创建空文件</div>
+                <div class="mt-1 text-sm text-slate-500 font-mono">更新时间戳</div>
+            </div>
+            <div class="card-glow rounded-xl p-4 text-center">
+                <div class="text-3xl mb-2">📋</div>
+                <div class="font-mono font-bold text-emerald-600 text-xl">cp</div>
+                <div class="text-base text-slate-700 font-bold">复印</div>
+                <div class="text-sm text-slate-400">复制文件</div>
+                <div class="mt-1 text-sm text-slate-500 font-mono">-r -i -v</div>
+            </div>
+            <div class="card-glow rounded-xl p-4 text-center">
+                <div class="text-3xl mb-2">🚚</div>
+                <div class="font-mono font-bold text-emerald-600 text-xl">mv</div>
+                <div class="text-base text-slate-700 font-bold">搬家</div>
+                <div class="text-sm text-slate-400">移动/重命名</div>
+                <div class="mt-1 text-sm text-slate-500 font-mono">-i</div>
+            </div>
+            <div class="card-glow rounded-xl p-4 text-center border-red-200">
+                <div class="text-3xl mb-2">🗑️</div>
+                <div class="font-mono font-bold text-red-500 text-xl">rm</div>
+                <div class="text-base text-slate-700 font-bold">销毁</div>
+                <div class="text-sm text-slate-400">永久删除 ⚠️</div>
+                <div class="mt-1 text-sm text-slate-500 font-mono">-r -f -i</div>
+            </div>
+            <div class="card-glow rounded-xl p-4 text-center">
+                <div class="text-3xl mb-2">🔎</div>
+                <div class="font-mono font-bold text-emerald-600 text-xl">find</div>
+                <div class="text-base text-slate-700 font-bold">搜索</div>
+                <div class="text-sm text-slate-400">全局查找</div>
+                <div class="mt-1 text-sm text-slate-500 font-mono">-name -exec</div>
+            </div>
+        </div>
+        <div class="warning-card rounded-xl p-5 mb-4">
+            <div class="flex items-center gap-4 mb-3">
+                <span class="text-3xl">🚨</span>
+                <span class="text-2xl font-bold text-red-600">终极警告</span>
+            </div>
+            <div class="terminal bg-white border-red-200">
+                <div class="terminal-body">
+                    <span class="cmd-red text-xl">rm -rf / = 系统自杀命令 · 绝对不能用！</span><br>
+                    <span class="text-slate-500 text-base">Linux 没有回收站，rm 就是永久删除。</span>
+                </div>
+            </div>
+            <div class="mt-3 bg-red-50 rounded-lg p-4 border-2 border-red-200">
+                <p class="text-red-800 text-base">
+                    <span class="font-bold">案例：</span>某公司员工误删生产数据库，凌晨三点全公司救火。没有 <span class="font-mono font-bold">-i</span> 确认，没有备份。
+                </p>
+            </div>
+        </div>
+        <div class="bg-emerald-50 border-2 border-emerald-300 rounded-xl p-4 text-center">
+            <p class="text-emerald-800 font-bold text-base">记忆口诀</p>
+            <p class="text-emerald-600 text-lg font-bold">"侦查移动建房占位，复印搬家销毁搜索"</p>
+        </div>
+    </div>
+</section>
+
+<!-- ==================== PAGE 5: 项目实战（上） ==================== -->
+<section class="page-section grid-bg" id="page-4">
+    <div class="max-w-6xl w-full px-8">
+        <div class="text-center mb-4">
+            <div class="section-label mb-2">环节四 · 02:00</div>
+            <h2 class="text-4xl font-bold text-slate-800 mt-2">企业项目：给部门发钥匙（上）</h2>
+            <div class="w-16 h-1.5 bg-emerald-500 mx-auto mt-3 rounded-full"></div>
+        </div>
+        <div class="card-glow rounded-xl p-4 mb-4 max-w-3xl mx-auto text-center">
+            <p class="text-lg text-slate-700">
+                <span class="font-bold text-slate-900">项目背景：</span>你是一名 Linux 系统管理员，为三个部门搭建文件共享体系
+            </p>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <div class="card-glow rounded-xl p-4 text-center">
+                <div class="text-4xl mb-2">🔧</div>
+                <h3 class="text-xl font-bold text-slate-800">技术部</h3>
+                <p class="text-base text-slate-500">10人 · 公共资料 + 机密项目</p>
+            </div>
+            <div class="card-glow rounded-xl p-4 text-center">
+                <div class="text-4xl mb-2">👥</div>
+                <h3 class="text-xl font-bold text-slate-800">人力资源部</h3>
+                <p class="text-base text-slate-500">3人 · 公共资料 + 员工档案</p>
+            </div>
+            <div class="card-glow rounded-xl p-4 text-center">
+                <div class="text-4xl mb-2">💰</div>
+                <h3 class="text-xl font-bold text-slate-800">财务部</h3>
+                <p class="text-base text-slate-500">5人 · 公共资料 + 财务报表</p>
+            </div>
+        </div>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div class="card-glow rounded-xl p-5">
+                <h3 class="text-lg font-bold text-slate-800 mb-3 text-center">任务 1：创建目录结构</h3>
+                <div class="terminal">
+                    <div class="terminal-body" style="padding: 36px 16px 16px; font-size: 14px;">
+                        <span class="cmd-prompt">$</span> <span class="text-slate-700">mkdir -p /company/tech/public /company/tech/private</span><br>
+                        <span class="cmd-prompt">$</span> <span class="text-slate-700">mkdir -p /company/hr/public /company/hr/private</span><br>
+                        <span class="cmd-prompt">$</span> <span class="text-slate-700">mkdir -p /company/finance/public /company/finance/private</span><br>
+                        <div class="mt-2 text-emerald-600 font-bold text-sm">✓ 一次命令，多层目录 — 效率即职业素养</div>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-slate-100 rounded-xl p-5">
+                <h4 class="text-base font-bold text-slate-700 mb-3 text-center">目录结构图</h4>
+                <div class="font-mono text-base text-slate-600 space-y-1">
+                    <div><span class="text-emerald-600 font-bold">/company</span></div>
+                    <div class="pl-4"><span class="text-blue-500">├── tech/</span></div>
+                    <div class="pl-8"><span class="text-emerald-500">├── public/</span></div>
+                    <div class="pl-8"><span class="text-red-400">└── private/</span></div>
+                    <div class="pl-4"><span class="text-blue-500">├── hr/</span></div>
+                    <div class="pl-8"><span class="text-emerald-500">├── public/</span></div>
+                    <div class="pl-8"><span class="text-red-400">└── private/</span></div>
+                    <div class="pl-4"><span class="text-blue-500">└── finance/</span></div>
+                    <div class="pl-8"><span class="text-emerald-500">├── public/</span></div>
+                    <div class="pl-8"><span class="text-red-400">└── private/</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ==================== PAGE 6: 项目实战（下） ==================== -->
+<section class="page-section" id="page-5">
+    <div class="max-w-6xl w-full px-8">
+        <div class="text-center mb-4">
+            <div class="section-label mb-2">环节四 · 03:00</div>
+            <h2 class="text-4xl font-bold text-slate-800 mt-2">企业项目：给部门发钥匙（下）</h2>
+            <div class="w-16 h-1.5 bg-emerald-500 mx-auto mt-3 rounded-full"></div>
+        </div>
+        <div class="flex justify-center mb-4">
+            <svg viewBox="0 0 700 240" class="w-full max-w-4xl h-auto">
+                <rect x="280" y="8" width="140" height="45" rx="10" fill="#f0fdf4" stroke="#10b981" stroke-width="2.5"/>
+                <text x="350" y="26" text-anchor="middle" fill="#059669" font-size="12" font-weight="bold">权限控制中心</text>
+                <text x="350" y="42" text-anchor="middle" fill="#10b981" font-size="10">chmod · chown · ls -l</text>
+                <line x1="310" y1="53" x2="120" y2="95" stroke="#10b981" stroke-width="2.5" class="flow-line" opacity="0.5"/>
+                <line x1="350" y1="53" x2="350" y2="95" stroke="#10b981" stroke-width="2.5" class="flow-line" opacity="0.5"/>
+                <line x1="390" y1="53" x2="580" y2="95" stroke="#10b981" stroke-width="2.5" class="flow-line" opacity="0.5"/>
+                <g transform="translate(10,105)">
+                    <rect x="0" y="0" width="210" height="120" rx="10" fill="#fff" stroke="#e2e8f0" stroke-width="2"/>
+                    <text x="105" y="18" text-anchor="middle" fill="#1e293b" font-size="12" font-weight="bold">🔧 技术部大楼</text>
+                    <rect x="18" y="28" width="174" height="38" rx="8" fill="#f0fdf4" stroke="#10b981" stroke-width="2"/>
+                    <text x="105" y="46" text-anchor="middle" fill="#059669" font-size="11" font-weight="bold">public · 755</text>
+                    <text x="105" y="60" text-anchor="middle" fill="#94a3b8" font-size="9">🟢 公共资料室</text>
+                    <rect x="18" y="74" width="174" height="38" rx="8" fill="#fef2f2" stroke="#ef4444" stroke-width="2"/>
+                    <text x="105" y="92" text-anchor="middle" fill="#dc2626" font-size="11" font-weight="bold">private · 700</text>
+                    <text x="105" y="106" text-anchor="middle" fill="#94a3b8" font-size="9">🔴 机密实验室</text>
+                </g>
+                <g transform="translate(245,105)">
+                    <rect x="0" y="0" width="210" height="120" rx="10" fill="#fff" stroke="#e2e8f0" stroke-width="2"/>
+                    <text x="105" y="18" text-anchor="middle" fill="#1e293b" font-size="12" font-weight="bold">👥 HR 大楼</text>
+                    <rect x="18" y="28" width="174" height="38" rx="8" fill="#f0fdf4" stroke="#10b981" stroke-width="2"/>
+                    <text x="105" y="46" text-anchor="middle" fill="#059669" font-size="11" font-weight="bold">public · 755</text>
+                    <text x="105" y="60" text-anchor="middle" fill="#94a3b8" font-size="9">🟢 公共资料室</text>
+                    <rect x="18" y="74" width="174" height="38" rx="8" fill="#fef2f2" stroke="#ef4444" stroke-width="2"/>
+                    <text x="105" y="92" text-anchor="middle" fill="#dc2626" font-size="11" font-weight="bold">private · 700</text>
+                    <text x="105" y="106" text-anchor="middle" fill="#94a3b8" font-size="9">🔴 员工档案室</text>
+                </g>
+                <g transform="translate(480,105)">
+                    <rect x="0" y="0" width="210" height="120" rx="10" fill="#fff" stroke="#e2e8f0" stroke-width="2"/>
+                    <text x="105" y="18" text-anchor="middle" fill="#1e293b" font-size="12" font-weight="bold">💰 财务大楼</text>
+                    <rect x="18" y="28" width="174" height="38" rx="8" fill="#f0fdf4" stroke="#10b981" stroke-width="2"/>
+                    <text x="105" y="46" text-anchor="middle" fill="#059669" font-size="11" font-weight="bold">public · 755</text>
+                    <text x="105" y="60" text-anchor="middle" fill="#94a3b8" font-size="9">🟢 公共资料室</text>
+                    <rect x="18" y="74" width="174" height="38" rx="8" fill="#fef2f2" stroke="#ef4444" stroke-width="2"/>
+                    <text x="105" y="92" text-anchor="middle" fill="#dc2626" font-size="11" font-weight="bold">private · 700</text>
+                    <text x="105" y="106" text-anchor="middle" fill="#94a3b8" font-size="9">🔴 财务报表室</text>
+                </g>
+            </svg>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div class="card-glow rounded-xl p-4">
+                <h4 class="text-base font-bold text-slate-800 mb-2">任务 2：创建测试文件</h4>
+                <div class="terminal">
+                    <div class="terminal-body" style="padding: 36px 16px 16px; font-size: 14px;">
+                        <span class="cmd-prompt">$</span> <span class="text-slate-700">touch /company/tech/public/readme.txt</span><br>
+                        <span class="cmd-prompt">$</span> <span class="text-slate-700">echo "Tech" > /company/tech/public/readme.txt</span>
+                    </div>
+                </div>
+            </div>
+            <div class="card-glow rounded-xl p-4">
+                <h4 class="text-base font-bold text-slate-800 mb-2">任务 3：设置权限</h4>
+                <div class="terminal">
+                    <div class="terminal-body" style="padding: 36px 16px 16px; font-size: 14px;">
+                        <span class="cmd-prompt">$</span> <span class="text-slate-700">chmod 755 /company/tech/public</span><br>
+                        <span class="cmd-prompt">$</span> <span class="text-slate-700">chmod 700 /company/tech/private</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="bg-amber-50 border-l-4 border-amber-400 rounded-r-xl p-4 max-w-3xl mx-auto">
+            <p class="text-base text-amber-800">
+                <span class="font-bold">💡 教学诊断：</span>目录设了 <span class="font-mono font-bold">rw-rw-r--</span>，怎么 <span class="font-mono font-bold">cd</span> 不进去？——<span class="font-bold text-red-500">目录没有 x 权限，就像房间没有门！</span>
+            </p>
+        </div>
+        <div class="mt-3 flex justify-center gap-3 flex-wrap">
+            <span class="perm-badge bg-emerald-50 text-emerald-700 border-2 border-emerald-300">项目驱动</span>
+            <span class="perm-badge bg-blue-50 text-blue-700 border-2 border-blue-300">团队协作</span>
+            <span class="perm-badge bg-amber-50 text-amber-700 border-2 border-amber-300">最小权限原则</span>
+        </div>
+    </div>
+</section>
+
+<!-- ==================== PAGE 7: 沙场练兵 ==================== -->
+<section class="page-section grid-bg" id="page-6">
+    <div class="max-w-4xl w-full px-8">
+        <div class="text-center mb-6">
+            <div class="section-label mb-2">环节五 · 01:00</div>
+            <h2 class="text-4xl font-bold text-slate-800 mt-2">沙场练兵——权限计算大闯关</h2>
+            <div class="w-16 h-1.5 bg-emerald-500 mx-auto mt-3 rounded-full"></div>
+        </div>
+        <div class="space-y-3">
+            <div class="card-glow rounded-xl p-5 cursor-pointer" onclick="this.querySelector('.quiz-answer').classList.toggle('show')">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <span class="font-mono text-3xl text-slate-700 font-bold">rwxr-xr-x</span>
+                        <span class="text-slate-400 text-xl ml-4">= ?</span>
+                    </div>
+                    <span class="text-emerald-600 text-base font-bold">点击答案 →</span>
+                </div>
+                <div class="quiz-answer">
+                    <div class="mt-3 pt-3 border-t-2 border-slate-100 flex items-center gap-6">
+                        <span class="font-mono text-5xl font-bold text-emerald-600">755</span>
+                        <span class="text-slate-500 text-base">程序文件 · 房东全能，别人能看能用</span>
+                    </div>
+                </div>
+            </div>
+            <div class="card-glow rounded-xl p-5 cursor-pointer" onclick="this.querySelector('.quiz-answer').classList.toggle('show')">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <span class="font-mono text-3xl text-slate-700 font-bold">rw-rw-r--</span>
+                        <span class="text-slate-400 text-xl ml-4">= ?</span>
+                    </div>
+                    <span class="text-emerald-600 text-base font-bold">点击答案 →</span>
+                </div>
+                <div class="quiz-answer">
+                    <div class="mt-3 pt-3 border-t-2 border-slate-100 flex items-center gap-6">
+                        <span class="font-mono text-5xl font-bold text-emerald-600">664</span>
+                        <span class="text-slate-500 text-base">协作文档 · 房东和邻居能改，访客只读</span>
+                    </div>
+                </div>
+            </div>
+            <div class="card-glow rounded-xl p-5 cursor-pointer" onclick="this.querySelector('.quiz-answer').classList.toggle('show')">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <span class="font-mono text-3xl text-slate-700 font-bold">rwx------</span>
+                        <span class="text-slate-400 text-xl ml-4">= ?</span>
+                    </div>
+                    <span class="text-emerald-600 text-base font-bold">点击答案 →</span>
+                </div>
+                <div class="quiz-answer">
+                    <div class="mt-3 pt-3 border-t-2 border-slate-100 flex items-center gap-6">
+                        <span class="font-mono text-5xl font-bold text-red-500">700</span>
+                        <span class="text-slate-500 text-base">私密文件 · 仅房东可见 = 保险柜</span>
+                    </div>
+                </div>
+            </div>
+            <div class="card-glow rounded-xl p-5 cursor-pointer" onclick="this.querySelector('.quiz-answer').classList.toggle('show')">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <span class="font-mono text-3xl text-slate-700 font-bold">rw-r--r--</span>
+                        <span class="text-slate-400 text-xl ml-4">= ?</span>
+                    </div>
+                    <span class="text-emerald-600 text-base font-bold">点击答案 →</span>
+                </div>
+                <div class="quiz-answer">
+                    <div class="mt-3 pt-3 border-t-2 border-slate-100 flex items-center gap-6">
+                        <span class="font-mono text-5xl font-bold text-emerald-600">644</span>
+                        <span class="text-slate-500 text-base">普通文档 · 房东能改，别人只读共享</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="mt-4 text-center">
+            <p class="text-base text-slate-400">计时挑战：2分钟 · 先识别 UGO 三段 · r=4 w=2 x=1</p>
+        </div>
+    </div>
+</section>
+
+<!-- ==================== PAGE 8: 总结升华 ==================== -->
+<section class="page-section" id="page-7">
+    <div class="max-w-6xl w-full px-8">
+        <div class="text-center mb-5">
+            <div class="section-label mb-2">环节六 · 01:00</div>
+            <h2 class="text-4xl font-bold text-slate-800 mt-2">知识图谱与思政升华</h2>
+            <div class="w-16 h-1.5 bg-emerald-500 mx-auto mt-3 rounded-full"></div>
+        </div>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="card-glow rounded-xl p-5">
+                <h3 class="text-xl font-bold text-slate-800 mb-4 text-center">知识图谱</h3>
+                <svg viewBox="0 0 360 200" class="w-full h-auto">
+                    <circle cx="180" cy="100" r="40" fill="#f0fdf4" stroke="#10b981" stroke-width="2.5"/>
+                    <text x="180" y="95" text-anchor="middle" fill="#059669" font-size="13" font-weight="bold">Linux</text>
+                    <text x="180" y="112" text-anchor="middle" fill="#059669" font-size="11">文件管理</text>
+                    <line x1="150" y1="75" x2="80" y2="45" stroke="#10b981" stroke-width="2" opacity="0.5"/>
+                    <circle cx="65" cy="38" r="28" fill="#fff" stroke="#10b981" stroke-width="2"/>
+                    <text x="65" y="34" text-anchor="middle" fill="#1e293b" font-size="10" font-weight="bold">权限管理</text>
+                    <text x="65" y="46" text-anchor="middle" fill="#10b981" font-size="8">UGO/chmod</text>
+                    <line x1="210" y1="75" x2="280" y2="45" stroke="#10b981" stroke-width="2" opacity="0.5"/>
+                    <circle cx="295" cy="38" r="28" fill="#fff" stroke="#10b981" stroke-width="2"/>
+                    <text x="295" y="34" text-anchor="middle" fill="#1e293b" font-size="10" font-weight="bold">文件操作</text>
+                    <text x="295" y="46" text-anchor="middle" fill="#10b981" font-size="8">8命令/管道</text>
+                    <line x1="150" y1="125" x2="80" y2="155" stroke="#ef4444" stroke-width="2" opacity="0.5"/>
+                    <circle cx="65" cy="162" r="28" fill="#fff" stroke="#ef4444" stroke-width="2"/>
+                    <text x="65" y="158" text-anchor="middle" fill="#1e293b" font-size="10" font-weight="bold">安全伦理</text>
+                    <text x="65" y="170" text-anchor="middle" fill="#ef4444" font-size="8">最小权限</text>
+                    <line x1="210" y1="125" x2="280" y2="155" stroke="#10b981" stroke-width="2" opacity="0.5"/>
+                    <circle cx="295" cy="162" r="28" fill="#fff" stroke="#10b981" stroke-width="2"/>
+                    <text x="295" y="158" text-anchor="middle" fill="#1e293b" font-size="10" font-weight="bold">企业应用</text>
+                    <text x="295" y="170" text-anchor="middle" fill="#10b981" font-size="8">部门权限体系</text>
+                </svg>
+            </div>
+            <div class="space-y-4">
+                <div class="quote-card p-6">
+                    <p class="text-xl text-emerald-900 font-medium leading-relaxed relative z-10">
+                        今天你们掌握了 <span class="font-bold">8 把工具</span>。但记住，<span class="font-bold">rm 就像手术刀</span>，既能治病也能伤人。技术能力越大，<span class="font-bold text-emerald-700">责任越大</span>。
+                    </p>
+                    <div class="mt-3 text-right text-emerald-600 text-base font-bold relative z-10">— 思政升华 · 法无授权不可为</div>
+                </div>
+                <div class="card-glow rounded-xl p-5">
+                    <h4 class="font-bold text-slate-800 text-base mb-2">📝 课后挑战</h4>
+                    <p class="text-base text-slate-600 leading-relaxed">
+                        整理个人云盘，用"最小权限原则"给不同文件夹设置共享边界。拍照上传学习通，写一句话心得。
+                    </p>
+                </div>
+                <div class="bg-slate-100 rounded-xl p-5 text-center">
+                    <p class="text-base text-slate-500">下节课预告</p>
+                    <p class="text-xl text-slate-700 font-bold mt-2">磁盘管理（df / du / fdisk）</p>
+                    <p class="text-sm text-slate-400">从文件管理走向存储管理</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ==================== PAGE 9: ENDING ==================== -->
+<section class="page-section" id="page-8">
+    <canvas class="bg-canvas" id="ending-canvas"></canvas>
+    <div class="relative z-10 text-center px-6 max-w-3xl">
+        <div class="mb-8">
+            <svg class="w-20 h-20 mx-auto text-emerald-500 mb-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <h1 class="text-6xl font-black text-slate-800 mb-4">感谢聆听</h1>
+            <p class="text-2xl text-slate-500">欢迎交流与探讨</p>
+        </div>
+        <div class="card-glow rounded-2xl p-8 mb-8 inline-block">
+            <div class="text-2xl text-slate-700 font-bold mb-3">Linux 操作系统</div>
+            <div class="text-lg text-slate-500">青岛幼儿师范高等专科学校 · 信息学院</div>
+            <div class="text-emerald-600 text-lg mt-2 font-medium">2025级计算机网络技术专业</div>
+        </div>
+        <div class="flex justify-center gap-4 flex-wrap">
+            <span class="perm-badge bg-emerald-50 text-emerald-700 border-2 border-emerald-300 text-base">课程思政融入</span>
+            <span class="perm-badge bg-emerald-50 text-emerald-700 border-2 border-emerald-300 text-base">AI 课堂辅助</span>
+            <span class="perm-badge bg-emerald-50 text-emerald-700 border-2 border-emerald-300 text-base">项目驱动教学</span>
+        </div>
+    </div>
+</section>
+
+</div>
+
+<script>
+function initParticles(canvasId, count) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    let w, h, particles = [];
+    const connDist = 170;
+
+    function resize() {
+        w = canvas.width = window.innerWidth;
+        h = canvas.height = window.innerHeight;
+    }
+
+    class Particle {
+        constructor() {
+            this.x = Math.random() * w;
+            this.y = Math.random() * h;
+            this.vx = (Math.random() - 0.5) * 0.5;
+            this.vy = (Math.random() - 0.5) * 0.5;
+            this.r = Math.random() * 2.5 + 1;
+        }
+        update() {
+            this.x += this.vx;
+            this.y += this.vy;
+            if (this.x < 0 || this.x > w) this.vx *= -1;
+            if (this.y < 0 || this.y > h) this.vy *= -1;
+        }
+        draw() {
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(16, 185, 129, 0.4)';
+            ctx.fill();
+        }
+    }
+
+    function init() {
+        particles = [];
+        for (let i = 0; i < count; i++) particles.push(new Particle());
+    }
+
+    function drawConns() {
+        for (let i = 0; i < particles.length; i++) {
+            for (let j = i + 1; j < particles.length; j++) {
+                const dx = particles[i].x - particles[j].x;
+                const dy = particles[i].y - particles[j].y;
+                const d = Math.sqrt(dx * dx + dy * dy);
+                if (d < connDist) {
+                    ctx.beginPath();
+                    ctx.moveTo(particles[i].x, particles[i].y);
+                    ctx.lineTo(particles[j].x, particles[j].y);
+                    ctx.strokeStyle = `rgba(16, 185, 129, ${0.1 * (1 - d / connDist)})`;
+                    ctx.lineWidth = 1;
+                    ctx.stroke();
+                }
+            }
+        }
+    }
+
+    function loop() {
+        ctx.clearRect(0, 0, w, h);
+        particles.forEach(p => { p.update(); p.draw(); });
+        drawConns();
+        requestAnimationFrame(loop);
+    }
+
+    resize(); init(); loop();
+    window.addEventListener('resize', () => { resize(); init(); });
+}
+
+initParticles('hero-canvas', 65);
+initParticles('ending-canvas', 40);
+
+const container = document.getElementById('scroll-container');
+const sections = document.querySelectorAll('.page-section');
+const dots = document.querySelectorAll('.nav-dot');
+const curEl = document.getElementById('current-page');
+let curIdx = 0;
+let scrolling = false;
+
+function goTo(idx) {
+    if (idx < 0 || idx >= sections.length) return;
+    scrolling = true;
+    curIdx = idx;
+    sections[idx].scrollIntoView({ behavior: 'smooth' });
+    dots.forEach((d, i) => d.classList.toggle('active', i === idx));
+    curEl.textContent = idx + 1;
+    setTimeout(() => { scrolling = false; }, 900);
+}
+
+container.addEventListener('scroll', () => {
+    if (scrolling) return;
+    const h = window.innerHeight;
+    const newIdx = Math.round(container.scrollTop / h);
+    if (newIdx !== curIdx && newIdx >= 0 && newIdx < sections.length) {
+        curIdx = newIdx;
+        dots.forEach((d, i) => d.classList.toggle('active', i === curIdx));
+        curEl.textContent = curIdx + 1;
+    }
+}, { passive: true });
+
+let wheelT;
+container.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    clearTimeout(wheelT);
+    wheelT = setTimeout(() => {
+        if (e.deltaY > 30) goTo(curIdx + 1);
+        else if (e.deltaY < -30) goTo(curIdx - 1);
+    }, 80);
+}, { passive: false });
+
+window.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowRight' || e.key === ' ') {
+        e.preventDefault(); goTo(curIdx + 1);
+    } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
+        e.preventDefault(); goTo(curIdx - 1);
+    }
+});
+
+dots.forEach((d, i) => d.addEventListener('click', () => goTo(i)));
+
+let tsY = 0;
+container.addEventListener('touchstart', (e) => { tsY = e.touches[0].clientY; }, { passive: true });
+container.addEventListener('touchend', (e) => {
+    const diff = tsY - e.changedTouches[0].clientY;
+    if (Math.abs(diff) > 60) {
+        if (diff > 0) goTo(curIdx + 1);
+        else goTo(curIdx - 1);
+    }
+}, { passive: true });
+
+goTo(0);
+
+const obs = new IntersectionObserver((entries) => {
+    entries.forEach(en => {
+        if (en.isIntersecting) en.target.classList.add('active');
+    });
+}, { threshold: 0.15 });
+sections.forEach(s => obs.observe(s));
+</script>
+</body>
+</html>
