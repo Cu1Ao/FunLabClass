@@ -1,0 +1,1911 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shell编程 - 课堂活动设计</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+    <style>
+        * { font-family: 'Noto Sans SC', sans-serif; }
+
+        :root {
+            --ac-green: #6B8E5E;
+            --ac-green-light: #8FB883;
+            --ac-green-dark: #4A6B3F;
+            --ac-brown: #8B6914;
+            --ac-brown-light: #C4A35A;
+            --ac-cream: #FFF8E7;
+            --ac-cream-dark: #F5ECD7;
+            --ac-blue: #5B8DB8;
+            --ac-pink: #E8A0BF;
+            --ac-orange: #E8A87C;
+            --ac-yellow: #F0E68C;
+            --ac-red: #C75B5B;
+            --ac-purple: #9B8EC7;
+        }
+
+        body {
+            background: #2D5A3D;
+            overflow: hidden;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+
+        .slide-container {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .slide {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            transform: translateX(100px);
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            pointer-events: none;
+            padding: 1.5rem;
+            box-sizing: border-box;
+        }
+
+        .slide.active {
+            opacity: 1;
+            transform: translateX(0);
+            pointer-events: all;
+        }
+
+        .slide.prev {
+            opacity: 0;
+            transform: translateX(-100px);
+        }
+
+        /* 动森风格背景 */
+        .ac-bg-pattern {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            pointer-events: none;
+            z-index: 0;
+            background-image: 
+                radial-gradient(circle at 20% 80%, rgba(107, 142, 94, 0.3) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(139, 105, 20, 0.2) 0%, transparent 50%),
+                radial-gradient(circle at 50% 50%, rgba(91, 141, 184, 0.15) 0%, transparent 60%);
+        }
+
+        /* 树叶装饰 */
+        .leaf {
+            position: fixed;
+            width: 20px;
+            height: 20px;
+            pointer-events: none;
+            z-index: 0;
+            opacity: 0.6;
+        }
+
+        .leaf::before {
+            content: "🍃";
+            font-size: 16px;
+        }
+
+        @keyframes leafFloat {
+            0%, 100% { transform: translateY(0) rotate(0deg); opacity: 0.6; }
+            25% { transform: translateY(-10px) rotate(5deg); opacity: 0.8; }
+            50% { transform: translateY(-5px) rotate(-3deg); opacity: 0.6; }
+            75% { transform: translateY(-15px) rotate(8deg); opacity: 0.4; }
+        }
+
+        /* 幻灯片内容 - 动森风格 */
+        .slide-content {
+            background: var(--ac-cream);
+            border-radius: 24px;
+            box-shadow: 
+                0 8px 32px rgba(0,0,0,0.15),
+                inset 0 2px 0 rgba(255,255,255,0.5),
+                0 0 0 4px var(--ac-brown-light);
+            width: 100%;
+            max-width: 1100px;
+            height: 100%;
+            max-height: 90vh;
+            position: relative;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .slide-header {
+            background: linear-gradient(135deg, var(--ac-green) 0%, var(--ac-green-light) 100%);
+            color: white;
+            padding: 1.2rem 2.5rem;
+            border-radius: 24px 24px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .slide-header h2 {
+            font-size: 1.8rem;
+        }
+
+        .slide-body {
+            padding: 1.5rem 2.5rem;
+            flex: 1;
+            overflow-y: auto;
+            color: #3D3D3D;
+            font-size: 1.05rem;
+            line-height: 1.7;
+            scrollbar-width: thin;
+            scrollbar-color: var(--ac-green-light) transparent;
+        }
+
+        .slide-body::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .slide-body::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .slide-body::-webkit-scrollbar-thumb {
+            background: var(--ac-green-light);
+            border-radius: 3px;
+        }
+
+        .slide-number {
+            background: rgba(255,255,255,0.25);
+            padding: 0.4rem 1.2rem;
+            border-radius: 20px;
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        /* 代码块 - 动森深色 */
+        .code-block {
+            background: #3D4A3A;
+            color: #E8E4D9;
+            padding: 0.8rem 1.2rem;
+            border-radius: 12px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 1rem;
+            line-height: 1.6;
+            overflow-x: auto;
+            border: 3px solid var(--ac-brown-light);
+            margin: 0.5rem 0;
+        }
+
+        .code-comment { color: #8FB883; }
+        .code-keyword { color: #F0E68C; }
+        .code-string { color: #E8A87C; }
+        .code-variable { color: #9B8EC7; }
+        .code-number { color: #5B8DB8; }
+
+        /* 卡片 - 动森圆角 */
+        .card {
+            background: white;
+            border-radius: 16px;
+            padding: 1.2rem;
+            box-shadow: 0 3px 12px rgba(0,0,0,0.06);
+            border: 2px solid var(--ac-cream-dark);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .card h3 {
+            font-size: 1.15rem;
+        }
+
+        .card h4 {
+            font-size: 1rem;
+        }
+
+        .card p {
+            font-size: 1rem;
+            line-height: 1.6;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+        }
+
+        .card-green {
+            background: linear-gradient(135deg, var(--ac-green) 0%, var(--ac-green-light) 100%);
+            color: white;
+            border: none;
+        }
+
+        .card-blue {
+            background: linear-gradient(135deg, var(--ac-blue) 0%, #7BA3C7 100%);
+            color: white;
+            border: none;
+        }
+
+        .card-pink {
+            background: linear-gradient(135deg, var(--ac-pink) 0%, #F0B8CD 100%);
+            color: white;
+            border: none;
+        }
+
+        .card-orange {
+            background: linear-gradient(135deg, var(--ac-orange) 0%, #F0C0A0 100%);
+            color: white;
+            border: none;
+        }
+
+        .card-yellow {
+            background: linear-gradient(135deg, var(--ac-yellow) 0%, #F5E8A0 100%);
+            color: #5A4A00;
+            border: none;
+        }
+
+        /* 标签 */
+        .tag {
+            display: inline-block;
+            padding: 0.3rem 0.8rem;
+            border-radius: 16px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            margin: 0.2rem;
+        }
+
+        .tag-green { background: rgba(107, 142, 94, 0.15); color: var(--ac-green-dark); }
+        .tag-brown { background: rgba(139, 105, 20, 0.15); color: var(--ac-brown); }
+        .tag-blue { background: rgba(91, 141, 184, 0.15); color: var(--ac-blue); }
+        .tag-pink { background: rgba(232, 160, 191, 0.2); color: #B06080; }
+        .tag-red { background: rgba(199, 91, 91, 0.15); color: var(--ac-red); }
+
+        /* 计时器 - 动森风格 */
+        .timer {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background: linear-gradient(135deg, var(--ac-green) 0%, var(--ac-green-dark) 100%);
+            color: white;
+            padding: 0.5rem 1.2rem;
+            border-radius: 24px;
+            font-family: 'Consolas', monospace;
+            font-size: 1.1rem;
+            z-index: 100;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            border: 2px solid var(--ac-brown-light);
+        }
+
+        /* 导航控制 - 动森风格 */
+        .nav-controls {
+            position: fixed;
+            bottom: 25px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 15px;
+            z-index: 100;
+            align-items: center;
+        }
+
+        .nav-btn {
+            background: linear-gradient(135deg, var(--ac-green) 0%, var(--ac-green-dark) 100%);
+            color: white;
+            border: none;
+            padding: 0.8rem 1.5rem;
+            border-radius: 24px;
+            cursor: pointer;
+            font-size: 1.1rem;
+            transition: all 0.3s;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            border: 2px solid var(--ac-brown-light);
+        }
+
+        .nav-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 16px rgba(0,0,0,0.25);
+        }
+
+        .nav-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .page-indicator {
+            background: rgba(255,255,255,0.95);
+            color: var(--ac-green-dark);
+            padding: 0.5rem 1.2rem;
+            border-radius: 20px;
+            font-size: 1.1rem;
+            font-weight: 700;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            border: 2px solid var(--ac-brown-light);
+        }
+
+        .progress-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            height: 5px;
+            background: linear-gradient(90deg, var(--ac-green), var(--ac-brown-light));
+            transition: width 0.3s;
+            z-index: 100;
+            border-radius: 0 3px 3px 0;
+        }
+
+        /* 列表 */
+        .styled-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .styled-list li {
+            position: relative;
+            padding-left: 1.8rem;
+            margin-bottom: 0.6rem;
+            line-height: 1.6;
+            font-size: 1rem;
+        }
+
+        .styled-list li::before {
+            content: "🌿";
+            position: absolute;
+            left: 0;
+            top: 0;
+            font-size: 0.9rem;
+        }
+
+        /* 步骤 */
+        .step-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 1rem;
+            margin-bottom: 0.8rem;
+        }
+
+        .step-num {
+            width: 32px;
+            height: 32px;
+            background: var(--ac-green);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1rem;
+            flex-shrink: 0;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+        }
+
+        /* 布局 */
+        .two-col {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        .three-col {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.8rem;
+        }
+
+        .four-col {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 0.8rem;
+        }
+
+        /* 强调 */
+        .highlight {
+            background: linear-gradient(180deg, transparent 60%, rgba(240, 230, 140, 0.4) 60%);
+            padding: 0 3px;
+            font-weight: 600;
+        }
+
+        /* 图标 */
+        .icon-box {
+            width: 40px;
+            height: 40px;
+            background: var(--ac-green);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.2rem;
+            margin-bottom: 0.5rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+
+        /* 响应式 */
+        @media (max-width: 768px) {
+            .two-col, .three-col, .four-col { grid-template-columns: 1fr; }
+            .slide-body { padding: 1rem 1.2rem; }
+            .slide-header { padding: 1rem 1.2rem; }
+            .slide-header h2 { font-size: 1.3rem; }
+            .code-block { font-size: 0.9rem; }
+            .card { padding: 1rem; }
+            .nav-btn { padding: 0.6rem 1rem; font-size: 1rem; }
+        }
+
+        /* 动画 */
+        @keyframes slideIn {
+            from { opacity: 0; transform: scale(0.95) translateY(15px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+
+        .slide.active .slide-content {
+            animation: slideIn 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* 动森装饰元素 */
+        .ac-decoration {
+            position: absolute;
+            pointer-events: none;
+            z-index: 5;
+        }
+
+        .ac-tree {
+            bottom: -10px;
+            right: 20px;
+            font-size: 4rem;
+            opacity: 0.3;
+        }
+
+        .ac-flower {
+            top: 10px;
+            left: 15px;
+            font-size: 2rem;
+            opacity: 0.4;
+        }
+
+        .ac-butterfly {
+            top: 50%;
+            right: 10px;
+            font-size: 1.5rem;
+            opacity: 0.3;
+            animation: flutter 3s ease-in-out infinite;
+        }
+
+        @keyframes flutter {
+            0%, 100% { transform: translateY(0) rotate(0deg); }
+            50% { transform: translateY(-10px) rotate(5deg); }
+        }
+
+        /* 滚动提示 */
+        .scroll-hint {
+            position: absolute;
+            bottom: 8px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.9rem;
+            color: var(--ac-brown);
+            opacity: 0.6;
+            display: none;
+        }
+
+        .slide-body.can-scroll + .scroll-hint {
+            display: block;
+        }
+
+        /* 全局增强样式 */
+        h1 { font-size: 2rem !important; }
+        h2 { font-size: 1.5rem !important; }
+        h3 { font-size: 1.2rem !important; }
+        h4 { font-size: 1.05rem !important; }
+
+        strong { font-size: 1rem !important; }
+
+        /* 通用字体大小覆盖 */
+        .slide-content [style*="font-size: 0.6"] { font-size: 0.8rem !important; }
+        .slide-content [style*="font-size: 0.65"] { font-size: 0.85rem !important; }
+        .slide-content [style*="font-size: 0.7"] { font-size: 0.9rem !important; }
+        .slide-content [style*="font-size: 0.75"] { font-size: 0.95rem !important; }
+        .slide-content [style*="font-size: 0.8"] { font-size: 1rem !important; }
+        .slide-content [style*="font-size: 0.85"] { font-size: 1.05rem !important; }
+        .slide-content [style*="font-size: 0.9"] { font-size: 1.1rem !important; }
+    </style>
+</head>
+<body>
+    <!-- 动森背景 -->
+    <div class="ac-bg-pattern"></div>
+
+    <!-- 树叶装饰 -->
+    <div class="leaf" style="top: 10%; left: 5%; animation: leafFloat 12s infinite;"></div>
+    <div class="leaf" style="top: 30%; right: 8%; animation: leafFloat 15s infinite 2s;"></div>
+    <div class="leaf" style="top: 60%; left: 3%; animation: leafFloat 10s infinite 4s;"></div>
+    <div class="leaf" style="top: 80%; right: 5%; animation: leafFloat 14s infinite 1s;"></div>
+    <div class="leaf" style="top: 45%; left: 90%; animation: leafFloat 11s infinite 3s;"></div>
+
+    <!-- 计时器 -->
+    <div class="timer" id="timer">⏱️ 00:00</div>
+
+    <!-- 进度条 -->
+    <div class="progress-bar" id="progressBar" style="width: 0%"></div>
+
+    <!-- 幻灯片容器 -->
+    <div class="slide-container" id="slideContainer">
+
+        <!-- P1: 封面 -->
+        <div class="slide active" data-slide="1">
+            <div class="slide-content" style="background: linear-gradient(135deg, #6B8E5E 0%, #4A6B3F 100%); justify-content: center; align-items: center; text-align: center; color: white; overflow: hidden;">
+                <div class="ac-decoration ac-flower">🌸</div>
+                <div class="ac-decoration ac-tree">🌳</div>
+                <div style="margin-bottom: 2rem; font-size: 5rem;">🐚</div>
+                <h1 style="font-size: 3.5rem; font-weight: 900; margin-bottom: 1rem; letter-spacing: 3px; text-shadow: 2px 2px 4px rgba(0,0,0,0.2);">Shell编程</h1>
+                <p style="font-size: 1.5rem; color: #F0E68C; margin-bottom: 2rem; font-weight: 400;">自动化运维的瑞士军刀 🌿</p>
+                <div style="display: flex; gap: 2rem; margin-top: 1.5rem; font-size: 1.1rem; opacity: 0.9;">
+                    <span>🍃 Linux网络操作系统</span>
+                    <span>🍂</span>
+                    <span>项目教程 🍄</span>
+                </div>
+                <div style="position: absolute; bottom: 3rem; font-size: 1rem; opacity: 0.7;">
+                    从零基础到实战应用 · 系统化教学设计
+                </div>
+            </div>
+        </div>
+
+        <!-- P2: 导入 -->
+        <div class="slide" data-slide="2">
+            <div class="slide-content">
+                <div class="slide-header">
+                    <h2 style="font-size: 1.5rem; font-weight: 700; margin: 0;">🌅 导入：运维工程师的早晨</h2>
+                    <span class="slide-number">02 / 22</span>
+                </div>
+                <div class="slide-body">
+                    <div class="two-col">
+                        <div class="card" style="border-left: 4px solid var(--ac-red);">
+                            <h3 style="color: var(--ac-red); margin-bottom: 0.8rem; font-size: 1.1rem;">😫 手动模式</h3>
+                            <ul class="styled-list">
+                                <li>登录服务器 ① → 输入命令</li>
+                                <li>登录服务器 ② → 输入命令</li>
+                                <li>登录服务器 ③ → 输入命令</li>
+                                <li>... ... ...</li>
+                                <li>登录服务器 ⑤⓪ → 输入命令</li>
+                            </ul>
+                            <div style="margin-top: 0.8rem; padding: 0.6rem; background: #FEF2F2; border-radius: 8px; font-size: 0.85rem;">
+                                <strong>⏰ 耗时：</strong>约 2 小时/天<br>
+                                <strong>⚠️ 风险：</strong>漏检、误操作
+                            </div>
+                        </div>
+                        <div class="card card-green">
+                            <h3 style="margin-bottom: 0.8rem; font-size: 1.1rem;">😊 脚本模式</h3>
+                            <div class="code-block" style="background: rgba(0,0,0,0.25); border-color: #F0E68C;">
+                                <span class="code-comment"># 一键巡检50台服务器</span><br>
+                                <span class="code-keyword">./monitor_all.sh</span><br><br>
+                                <span style="color: #90EE90;">[OK]</span> Svr-01 CPU:23% MEM:45%<br>
+                                <span style="color: #90EE90;">[OK]</span> Svr-02 CPU:31% MEM:52%<br>
+                                <span style="color: #FFD700;">[WARN]</span> Svr-03 CPU:89%<br>
+                                <span style="color: #87CEEB;">✨ 完成！耗时15秒</span>
+                            </div>
+                            <div style="margin-top: 0.8rem; padding: 0.6rem; background: rgba(255,255,255,0.15); border-radius: 8px; font-size: 0.85rem;">
+                                <strong>⚡ 耗时：</strong>15 秒/天<br>
+                                <strong>🎯 收益：</strong>专注更有价值的工作
+                            </div>
+                        </div>
+                    </div>
+                    <div style="text-align: center; margin-top: 1rem; padding: 0.8rem; background: linear-gradient(135deg, #FFF8E7 0%, #F5ECD7 100%); border-radius: 12px; border: 2px dashed var(--ac-brown-light);">
+                        <p style="font-size: 1rem; color: var(--ac-brown); font-weight: 600;">💡 重复劳动是程序员最大的敌人 → Shell脚本就是消灭重复劳动的"自动化武器" 🛠️</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- P3: 今天的挑战 -->
+        <div class="slide" data-slide="3">
+            <div class="slide-content">
+                <div class="slide-header">
+                    <h2 style="font-size: 1.5rem; font-weight: 700; margin: 0;">🎯 今天的挑战</h2>
+                    <span class="slide-number">03 / 22</span>
+                </div>
+                <div class="slide-body">
+                    <div style="text-align: center; margin-bottom: 1.2rem;">
+                        <div style="display: inline-block; background: linear-gradient(135deg, var(--ac-green) 0%, var(--ac-green-dark) 100%); color: white; padding: 1rem 2.5rem; border-radius: 16px; font-size: 1.1rem; font-weight: 700; box-shadow: 0 6px 20px rgba(0,0,0,0.15); border: 3px solid var(--ac-brown-light);">
+                            🎯 编写系统监控脚本
+                        </div>
+                    </div>
+                    <div class="three-col" style="margin-bottom: 1rem;">
+                        <div class="card card-blue" style="text-align: center;">
+                            <div style="font-size: 2rem; margin-bottom: 0.3rem;">📊</div>
+                            <h3 style="font-size: 1rem; margin-bottom: 0.3rem;">监控 CPU</h3>
+                            <p style="font-size: 0.8rem; opacity: 0.9;">实时获取负载</p>
+                        </div>
+                        <div class="card card-pink" style="text-align: center;">
+                            <div style="font-size: 2rem; margin-bottom: 0.3rem;">💾</div>
+                            <h3 style="font-size: 1rem; margin-bottom: 0.3rem;">监控 内存</h3>
+                            <p style="font-size: 0.8rem; opacity: 0.9;">检测占用率</p>
+                        </div>
+                        <div class="card card-orange" style="text-align: center;">
+                            <div style="font-size: 2rem; margin-bottom: 0.3rem;">💿</div>
+                            <h3 style="font-size: 1rem; margin-bottom: 0.3rem;">监控 磁盘</h3>
+                            <p style="font-size: 0.8rem; opacity: 0.9;">检查使用率</p>
+                        </div>
+                    </div>
+                    <div class="card card-yellow" style="text-align: center;">
+                        <h3 style="margin-bottom: 0.8rem; font-size: 1.1rem;">📋 需求规格</h3>
+                        <div style="display: flex; justify-content: center; gap: 2rem; flex-wrap: wrap;">
+                            <span>✅ 自动采集三项指标</span>
+                            <span>✅ 异常即告警</span>
+                            <span>✅ 可重复执行</span>
+                            <span>✅ 代码规范</span>
+                            <span>✅ 注释完整</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- P4: 知识回顾 -->
+        <div class="slide" data-slide="4">
+            <div class="slide-content">
+                <div class="slide-header">
+                    <h2 style="font-size: 1.5rem; font-weight: 700; margin: 0;">📚 知识回顾：Linux命令基础</h2>
+                    <span class="slide-number">04 / 22</span>
+                </div>
+                <div class="slide-body">
+                    <div class="four-col" style="margin-bottom: 1rem;">
+                        <div class="card">
+                            <h4 style="color: var(--ac-green); margin-bottom: 0.5rem; font-size: 1.05rem;">📁 文件操作</h4>
+                            <div class="code-block" style="font-size: 0.85rem; padding: 0.6rem;">
+                                <span class="code-keyword">ls</span> -la<br>
+                                <span class="code-keyword">cat</span> file<br>
+                                <span class="code-keyword">cd</span> /path<br>
+                                <span class="code-keyword">mkdir</span> dir
+                            </div>
+                        </div>
+                        <div class="card">
+                            <h4 style="color: var(--ac-blue); margin-bottom: 0.5rem; font-size: 1.05rem;">🔍 文本处理</h4>
+                            <div class="code-block" style="font-size: 0.85rem; padding: 0.6rem;">
+                                <span class="code-keyword">grep</span> "err"<br>
+                                <span class="code-keyword">awk</span> '{print}'<br>
+                                <span class="code-keyword">sed</span> 's/a/b/'<br>
+                                <span class="code-keyword">wc</span> -l
+                            </div>
+                        </div>
+                        <div class="card">
+                            <h4 style="color: var(--ac-orange); margin-bottom: 0.5rem; font-size: 1.05rem;">⚙️ 系统监控</h4>
+                            <div class="code-block" style="font-size: 0.85rem; padding: 0.6rem;">
+                                <span class="code-keyword">ps</span> aux<br>
+                                <span class="code-keyword">df</span> -h<br>
+                                <span class="code-keyword">free</span> -m<br>
+                                <span class="code-keyword">uptime</span>
+                            </div>
+                        </div>
+                        <div class="card">
+                            <h4 style="color: var(--ac-pink); margin-bottom: 0.5rem; font-size: 1.05rem;">🔗 管道重定向</h4>
+                            <div class="code-block" style="font-size: 0.85rem; padding: 0.6rem;">
+                                cmd1 <span class="code-variable">|</span> cmd2<br>
+                                cmd <span class="code-variable">></span> file<br>
+                                cmd <span class="code-variable">>></span> file<br>
+                                cmd <span class="code-variable">&lt;</span> file
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card" style="background: linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 100%); border: 2px solid var(--ac-green);">
+                        <h4 style="color: var(--ac-green-dark); margin-bottom: 0.5rem; text-align: center; font-size: 1.1rem;">🌟 核心认知：管道 = 命令之间的"传送带"，重定向 = 输出的"收纳盒"</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- P5: 什么是Shell -->
+        <div class="slide" data-slide="5">
+            <div class="slide-content">
+                <div class="slide-header">
+                    <h2 style="font-size: 1.5rem; font-weight: 700; margin: 0;">🐚 知识模块一：Shell基础概念</h2>
+                    <span class="slide-number">05 / 22</span>
+                </div>
+                <div class="slide-body">
+                    <div class="two-col" style="margin-bottom: 1rem;">
+                        <div>
+                            <h3 style="color: var(--ac-green); margin-bottom: 0.8rem; font-size: 1.1rem;">🤔 什么是Shell？</h3>
+                            <div class="card" style="margin-bottom: 0.8rem;">
+                                <p style="font-size: 0.9rem; line-height: 1.6;">Shell是<strong>用户与Linux内核之间的翻译官</strong>，是一个命令解释器。</p>
+                            </div>
+                            <div style="background: var(--ac-green); color: white; padding: 0.8rem; border-radius: 12px; text-align: center;">
+                                <div style="display: flex; align-items: center; justify-content: center; gap: 0.5rem; font-size: 0.9rem; flex-wrap: wrap;">
+                                    <span>👤用户</span>
+                                    <span>→</span>
+                                    <span style="background: rgba(255,255,255,0.2); padding: 0.3rem 0.6rem; border-radius: 6px;">🐚Shell</span>
+                                    <span>→</span>
+                                    <span>⚙️内核</span>
+                                    <span>→</span>
+                                    <span>🔌硬件</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <h3 style="color: var(--ac-green); margin-bottom: 0.8rem; font-size: 1.1rem;">📜 脚本本质</h3>
+                            <div class="card" style="margin-bottom: 0.8rem;">
+                                <p style="font-size: 0.9rem; line-height: 1.6;">Shell脚本是<strong>批处理文件</strong>，将多个命令组织在一个文件中，一次性执行。</p>
+                            </div>
+                            <div class="three-col" style="gap: 0.4rem;">
+                                <div style="background: #ECFDF5; padding: 0.5rem; border-radius: 8px; text-align: center;">
+                                    <div style="font-size: 1.2rem;">⚡</div>
+                                    <div style="font-size: 0.75rem; font-weight: 600;">无需编译</div>
+                                </div>
+                                <div style="background: #ECFDF5; padding: 0.5rem; border-radius: 8px; text-align: center;">
+                                    <div style="font-size: 1.2rem;">🧩</div>
+                                    <div style="font-size: 0.75rem; font-weight: 600;">命令组合</div>
+                                </div>
+                                <div style="background: #ECFDF5; padding: 0.5rem; border-radius: 8px; text-align: center;">
+                                    <div style="font-size: 1.2rem;">🎮</div>
+                                    <div style="font-size: 0.75rem; font-weight: 600;">流程控制</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card card-yellow" style="text-align: center;">
+                        <p style="font-size: 1rem; font-weight: 600;">💡 Shell脚本 = 把"重复的手动操作"变成"自动化的程序" 🔄</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- P6: 第一个脚本 -->
+        <div class="slide" data-slide="6">
+            <div class="slide-content">
+                <div class="slide-header">
+                    <h2 style="font-size: 1.5rem; font-weight: 700; margin: 0;">📝 第一个脚本：Hello World</h2>
+                    <span class="slide-number">06 / 22</span>
+                </div>
+                <div class="slide-body">
+                    <div class="two-col">
+                        <div>
+                            <h3 style="color: var(--ac-green); margin-bottom: 0.6rem; font-size: 1rem;">🌱 脚本编写规范</h3>
+                            <div class="step-item">
+                                <div class="step-num">1</div>
+                                <div>
+                                    <strong style="font-size: 0.9rem;">Shebang</strong>
+                                    <div class="code-block" style="font-size: 0.8rem; padding: 0.4rem;">
+                                        <span class="code-comment">#!/bin/bash</span>
+                                    </div>
+                                    <p style="font-size: 0.75rem; color: #666;">脚本的"身份证"</p>
+                                </div>
+                            </div>
+                            <div class="step-item">
+                                <div class="step-num">2</div>
+                                <div>
+                                    <strong style="font-size: 0.9rem;">注释</strong>
+                                    <div class="code-block" style="font-size: 0.8rem; padding: 0.4rem;">
+                                        <span class="code-comment"># 作者/功能/版本</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="step-item">
+                                <div class="step-num">3</div>
+                                <div>
+                                    <strong style="font-size: 0.9rem;">环境变量</strong>
+                                    <div class="code-block" style="font-size: 0.8rem; padding: 0.4rem;">
+                                        <span class="code-keyword">PATH</span>=...<br>
+                                        <span class="code-keyword">export</span> <span class="code-variable">PATH</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <h3 style="color: var(--ac-green); margin-bottom: 0.6rem; font-size: 1rem;">▶️ 三种执行方式</h3>
+                            <div class="card" style="margin-bottom: 0.5rem; border-left: 3px solid #22c55e; padding: 0.6rem;">
+                                <h4 style="color: #22c55e; font-size: 0.85rem; margin-bottom: 0.3rem;">方式一：直接执行</h4>
+                                <div class="code-block" style="font-size: 0.75rem; padding: 0.4rem;">
+                                    <span class="code-keyword">chmod</span> +x hello.sh<br>
+                                    ./hello.sh
+                                </div>
+                                <p style="font-size: 0.7rem; color: #666;">需chmod授权</p>
+                            </div>
+                            <div class="card" style="margin-bottom: 0.5rem; border-left: 3px solid #3b82f6; padding: 0.6rem;">
+                                <h4 style="color: #3b82f6; font-size: 0.85rem; margin-bottom: 0.3rem;">方式二：bash执行</h4>
+                                <div class="code-block" style="font-size: 0.75rem; padding: 0.4rem;">
+                                    <span class="code-keyword">bash</span> hello.sh
+                                </div>
+                                <p style="font-size: 0.7rem; color: #666;">无需权限</p>
+                            </div>
+                            <div class="card" style="border-left: 3px solid #f59e0b; padding: 0.6rem;">
+                                <h4 style="color: #f59e0b; font-size: 0.85rem; margin-bottom: 0.3rem;">方式三：source执行</h4>
+                                <div class="code-block" style="font-size: 0.75rem; padding: 0.4rem;">
+                                    <span class="code-keyword">source</span> hello.sh
+                                </div>
+                                <p style="font-size: 0.7rem; color: #666;">变量保留</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- P7: 代码诊所 -->
+        <div class="slide" data-slide="7">
+            <div class="slide-content">
+                <div class="slide-header">
+                    <h2 style="font-size: 1.5rem; font-weight: 700; margin: 0;">🔍 互动：代码诊所</h2>
+                    <span class="slide-number">07 / 22</span>
+                </div>
+                <div class="slide-body">
+                    <p style="margin-bottom: 0.8rem; font-size: 0.9rem;">三个"病人"，请你诊断病因 🏥</p>
+                    <div style="display: flex; flex-direction: column; gap: 0.8rem;">
+                        <div class="card" style="border-left: 3px solid var(--ac-red); padding: 0.6rem;">
+                            <div style="display: flex; justify-content: space-between; align-items: start; gap: 1rem;">
+                                <div style="flex: 1;">
+                                    <h4 style="color: var(--ac-red); margin-bottom: 0.4rem; font-size: 0.9rem;">🤒 病人一号：赋值报错</h4>
+                                    <div class="code-block" style="font-size: 0.8rem; padding: 0.4rem;">
+                                        <span class="code-variable">name</span> = <span class="code-string">"tom"</span>
+                                    </div>
+                                    <p style="font-size: 0.8rem; margin-top: 0.3rem;"><strong>报错：</strong>command not found</p>
+                                </div>
+                                <div style="background: #FEF2F2; padding: 0.6rem; border-radius: 8px; min-width: 180px;">
+                                    <p style="color: var(--ac-red); font-weight: 600; font-size: 0.8rem; margin-bottom: 0.3rem;">💊 诊断</p>
+                                    <p style="font-size: 0.75rem;">等号两侧<strong>不能有空格</strong>！</p>
+                                    <div class="code-block" style="font-size: 0.7rem; padding: 0.3rem; margin-top: 0.3rem;">
+                                        <span class="code-variable">name</span>=<span class="code-string">"tom"</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card" style="border-left: 3px solid #f59e0b; padding: 0.6rem;">
+                            <div style="display: flex; justify-content: space-between; align-items: start; gap: 1rem;">
+                                <div style="flex: 1;">
+                                    <h4 style="color: #f59e0b; margin-bottom: 0.4rem; font-size: 0.9rem;">🤕 病人二号：权限拒绝</h4>
+                                    <div class="code-block" style="font-size: 0.8rem; padding: 0.4rem;">
+                                        $ ./test.sh<br>
+                                        Permission denied
+                                    </div>
+                                </div>
+                                <div style="background: #FFFBEB; padding: 0.6rem; border-radius: 8px; min-width: 180px;">
+                                    <p style="color: #f59e0b; font-weight: 600; font-size: 0.8rem; margin-bottom: 0.3rem;">💊 诊断</p>
+                                    <p style="font-size: 0.75rem;">需<strong>chmod授权</strong></p>
+                                    <div class="code-block" style="font-size: 0.7rem; padding: 0.3rem; margin-top: 0.3rem;">
+                                        <span class="code-keyword">chmod</span> +x test.sh
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card" style="border-left: 3px solid #8b5cf6; padding: 0.6rem;">
+                            <div style="display: flex; justify-content: space-between; align-items: start; gap: 1rem;">
+                                <div style="flex: 1;">
+                                    <h4 style="color: #8b5cf6; margin-bottom: 0.4rem; font-size: 0.9rem;">🤢 病人三号：解释器错误</h4>
+                                    <div class="code-block" style="font-size: 0.8rem; padding: 0.4rem;">
+                                        bad interpreter: ^M
+                                    </div>
+                                </div>
+                                <div style="background: #F5F3FF; padding: 0.6rem; border-radius: 8px; min-width: 180px;">
+                                    <p style="color: #8b5cf6; font-weight: 600; font-size: 0.8rem; margin-bottom: 0.3rem;">💊 提示</p>
+                                    <p style="font-size: 0.75rem;">Windows换行符<strong>CRLF</strong>问题</p>
+                                    <p style="font-size: 0.7rem; color: #666; margin-top: 0.2rem;">用dos2unix转换</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- P8: 变量与运算 -->
+        <div class="slide" data-slide="8">
+            <div class="slide-content">
+                <div class="slide-header">
+                    <h2 style="font-size: 1.5rem; font-weight: 700; margin: 0;">📦 知识模块二：变量与运算</h2>
+                    <span class="slide-number">08 / 22</span>
+                </div>
+                <div class="slide-body">
+                    <div class="two-col">
+                        <div>
+                            <h3 style="color: var(--ac-green); margin-bottom: 0.5rem; font-size: 1rem;">📦 变量定义与引用</h3>
+                            <div class="card" style="margin-bottom: 0.5rem; padding: 0.6rem;">
+                                <h4 style="font-size: 0.85rem; margin-bottom: 0.3rem;">定义规则</h4>
+                                <div class="code-block" style="font-size: 0.75rem; padding: 0.4rem;">
+                                    <span class="code-variable">name</span>=<span class="code-string">"tom"</span><br>
+                                    <span class="code-variable">age</span>=<span class="code-number">20</span>
+                                </div>
+                            </div>
+                            <div class="card" style="margin-bottom: 0.5rem; padding: 0.6rem;">
+                                <h4 style="font-size: 0.85rem; margin-bottom: 0.3rem;">引用变量</h4>
+                                <div class="code-block" style="font-size: 0.75rem; padding: 0.4rem;">
+                                    <span class="code-keyword">echo</span> <span class="code-variable">$name</span><br>
+                                    <span class="code-keyword">echo</span> <span class="code-variable">${name}</span> <span class="code-comment"># 推荐</span>
+                                </div>
+                                <div style="background: #FEF3C7; padding: 0.4rem; border-radius: 6px; margin-top: 0.3rem; font-size: 0.75rem;">
+                                    <strong>⚠️</strong> 花括号防歧义<br>
+                                    <span class="code-variable">${name}</span>123 ✅<br>
+                                    <span class="code-variable">$name</span>123 ❌
+                                </div>
+                            </div>
+                            <div class="card" style="padding: 0.6rem;">
+                                <h4 style="font-size: 0.85rem; margin-bottom: 0.3rem;">引号区别</h4>
+                                <div class="code-block" style="font-size: 0.75rem; padding: 0.4rem;">
+                                    <span class="code-string">"$name"</span> <span class="code-comment"># 替换</span><br>
+                                    <span class="code-string">'$name'</span> <span class="code-comment"># 原样</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <h3 style="color: var(--ac-green); margin-bottom: 0.5rem; font-size: 1rem;">🧮 运算与交互</h3>
+                            <div class="card" style="margin-bottom: 0.5rem; padding: 0.6rem;">
+                                <h4 style="font-size: 0.85rem; margin-bottom: 0.3rem;">命令替换 $()</h4>
+                                <div class="code-block" style="font-size: 0.75rem; padding: 0.4rem;">
+                                    <span class="code-variable">date</span>=<span class="code-variable">$(</span><span class="code-keyword">date</span> +%Y%m%d<span class="code-variable">)</span>
+                                </div>
+                            </div>
+                            <div class="card" style="margin-bottom: 0.5rem; padding: 0.6rem;">
+                                <h4 style="font-size: 0.85rem; margin-bottom: 0.3rem;">数值运算</h4>
+                                <div class="code-block" style="font-size: 0.75rem; padding: 0.4rem;">
+                                    <span class="code-variable">sum</span>=<span class="code-variable">$((a + b))</span>
+                                </div>
+                            </div>
+                            <div class="card card-green" style="padding: 0.6rem;">
+                                <h4 style="font-size: 0.85rem; margin-bottom: 0.3rem;">🎤 read交互</h4>
+                                <div class="code-block" style="font-size: 0.75rem; padding: 0.4rem; background: rgba(0,0,0,0.25);">
+                                    <span class="code-keyword">read</span> -p <span class="code-string">"输入: "</span> <span class="code-variable">var</span>
+                                </div>
+                                <p style="font-size: 0.8rem; margin-top: 0.3rem;">让脚本"会说话" 🗣️</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- P9: 变量填空挑战 -->
+        <div class="slide" data-slide="9">
+            <div class="slide-content">
+                <div class="slide-header">
+                    <h2 style="font-size: 1.5rem; font-weight: 700; margin: 0;">🎮 小组任务①：变量填空挑战</h2>
+                    <span class="slide-number">09 / 22</span>
+                </div>
+                <div class="slide-body">
+                    <div style="text-align: center; margin-bottom: 1rem;">
+                        <span class="tag tag-pink" style="font-size: 1rem; padding: 0.4rem 1.2rem;">⏱️ 限时 3 分钟</span>
+                    </div>
+                    <div class="card" style="margin-bottom: 1rem; border: 2px solid var(--ac-green); padding: 1rem;">
+                        <h3 style="color: var(--ac-green); margin-bottom: 0.6rem; font-size: 1.15rem;">📋 补全系统信息收集脚本</h3>
+                        <div class="code-block" style="font-size: 0.95rem; line-height: 1.8; padding: 0.8rem;">
+                            <span class="code-comment">#!/bin/bash</span><br>
+                            <span class="code-comment"># 系统信息收集</span><br><br>
+                            <span class="code-variable">hostname</span>=<span style="background: #FEF3C7; padding: 0 4px;">______</span><br>
+                            <span class="code-variable">now</span>=<span style="background: #FEF3C7; padding: 0 4px;">______</span><br>
+                            <span class="code-variable">user</span>=<span style="background: #FEF3C7; padding: 0 4px;">______</span><br><br>
+                            <span class="code-keyword">echo</span> <span class="code-string">"主机: <span style="background: #FEF3C7; padding: 0 4px;">______</span>"</span><br>
+                            <span class="code-keyword">echo</span> <span class="code-string">"时间: <span style="background: #FEF3C7; padding: 0 4px;">______</span>"</span><br>
+                            <span class="code-keyword">echo</span> <span class="code-string">"用户: <span style="background: #FEF3C7; padding: 0 4px;">______</span>"</span>
+                        </div>
+                    </div>
+                    <div class="two-col">
+                        <div class="card" style="background: #ECFDF5; padding: 0.8rem;">
+                            <h4 style="color: var(--ac-green); font-size: 1rem; margin-bottom: 0.4rem;">💡 提示</h4>
+                            <ul class="styled-list">
+                                <li>主机名：<code>hostname</code></li>
+                                <li>时间：<code>date</code></li>
+                                <li>用户：<code>$USER</code></li>
+                                <li>替换：<code>$(命令)</code></li>
+                            </ul>
+                        </div>
+                        <div class="card" style="background: #FEF3C7; padding: 0.8rem;">
+                            <h4 style="color: var(--ac-brown); font-size: 1rem; margin-bottom: 0.4rem;">🎯 评价</h4>
+                            <ul class="styled-list">
+                                <li>语法正确</li>
+                                <li>命名规范</li>
+                                <li>输出清晰</li>
+                                <li>有注释</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- P10: 条件判断 -->
+        <div class="slide" data-slide="10">
+            <div class="slide-content">
+                <div class="slide-header">
+                    <h2 style="font-size: 1.5rem; font-weight: 700; margin: 0;">🔍 知识模块三：条件判断</h2>
+                    <span class="slide-number">10 / 22</span>
+                </div>
+                <div class="slide-body">
+                    <div class="two-col">
+                        <div>
+                            <h3 style="color: var(--ac-green); margin-bottom: 0.5rem; font-size: 1rem;">🔍 test / []</h3>
+                            <div class="card" style="margin-bottom: 0.5rem; padding: 0.5rem;">
+                                <div class="code-block" style="font-size: 0.7rem; padding: 0.4rem;">
+                                    <span class="code-keyword">test</span> -e file <span class="code-comment"># 存在</span><br>
+                                    <span class="code-keyword">test</span> -f file <span class="code-comment"># 普通文件</span><br>
+                                    <span class="code-keyword">test</span> -d file <span class="code-comment"># 目录</span><br>
+                                    [ -z <span class="code-string">"$var"</span> ] <span class="code-comment"># 空</span><br>
+                                    [ <span class="code-string">"$a"</span> -gt <span class="code-string">"$b"</span> ] <span class="code-comment"># 大于</span>
+                                </div>
+                            </div>
+                            <div class="card" style="padding: 0.5rem; background: #FEF2F2; border: 2px solid var(--ac-red);">
+                                <p style="font-size: 0.8rem; color: var(--ac-red);"><strong>⚠️ 必须有空格！</strong></p>
+                                <div class="code-block" style="font-size: 0.7rem; padding: 0.3rem;">
+                                    [ "$a" == "$b" ] ✅<br>
+                                    ["$a"=="$b"] ❌
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <h3 style="color: var(--ac-green); margin-bottom: 0.5rem; font-size: 1rem;">🌿 if-then</h3>
+                            <div class="card" style="margin-bottom: 0.5rem; padding: 0.5rem;">
+                                <div class="code-block" style="font-size: 0.75rem; line-height: 1.5; padding: 0.4rem;">
+                                    <span class="code-keyword">if</span> [ 条件 ]; <span class="code-keyword">then</span><br>
+                                    &nbsp;&nbsp;命令<br>
+                                    <span class="code-keyword">elif</span> [ 条件 ]; <span class="code-keyword">then</span><br>
+                                    &nbsp;&nbsp;命令<br>
+                                    <span class="code-keyword">else</span><br>
+                                    &nbsp;&nbsp;命令<br>
+                                    <span class="code-keyword">fi</span>
+                                </div>
+                            </div>
+                            <div class="card card-green" style="padding: 0.5rem;">
+                                <h4 style="font-size: 0.85rem; margin-bottom: 0.3rem;">🎯 磁盘告警</h4>
+                                <div class="code-block" style="font-size: 0.7rem; background: rgba(0,0,0,0.25); padding: 0.4rem; line-height: 1.5;">
+                                    <span class="code-variable">disk</span>=<span class="code-variable">$(</span><span class="code-keyword">df</span> -h / <span class="code-variable">|</span> <span class="code-keyword">awk</span> <span class="code-string">'NR==2{print $5}'</span><span class="code-variable">)</span><br>
+                                    <span class="code-keyword">if</span> [ <span class="code-string">"$disk"</span> -gt <span class="code-number">80</span> ]; <span class="code-keyword">then</span><br>
+                                    &nbsp;&nbsp;<span class="code-keyword">echo</span> <span class="code-string">"⚠️ 告警！"</span><br>
+                                    <span class="code-keyword">else</span><br>
+                                    &nbsp;&nbsp;<span class="code-keyword">echo</span> <span class="code-string">"✅ 正常"</span><br>
+                                    <span class="code-keyword">fi</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- P11: 演示磁盘告警脚本 -->
+        <div class="slide" data-slide="11">
+            <div class="slide-content">
+                <div class="slide-header">
+                    <h2 style="font-size: 1.5rem; font-weight: 700; margin: 0;">🎬 演示：磁盘告警脚本</h2>
+                    <span class="slide-number">11 / 22</span>
+                </div>
+                <div class="slide-body">
+                    <div style="margin-bottom: 0.5rem;">
+                        <span class="tag tag-green">教师演示</span>
+                        <span class="tag tag-brown">示范-模仿</span>
+                    </div>
+                    <div class="card" style="border: 2px solid var(--ac-green); margin-bottom: 0.5rem; padding: 0.6rem;">
+                        <h3 style="color: var(--ac-green); margin-bottom: 0.4rem; font-size: 0.95rem;">📝 disk_alert.sh</h3>
+                        <div class="code-block" style="font-size: 0.75rem; line-height: 1.5; padding: 0.4rem;">
+                            <span class="code-comment">#!/bin/bash</span><br>
+                            <span class="code-comment"># 磁盘监控脚本</span><br>
+                            <span class="code-variable">THRESHOLD</span>=<span class="code-number">80</span><br>
+                            <span class="code-variable">disk</span>=<span class="code-variable">$(</span><span class="code-keyword">df</span> -h / <span class="code-variable">|</span> <span class="code-keyword">awk</span> <span class="code-string">'NR==2{print $5}'</span> <span class="code-variable">|</span> <span class="code-keyword">cut</span> -d<span class="code-string">'%'</span> -f1<span class="code-variable">)</span><br><br>
+                            <span class="code-keyword">echo</span> <span class="code-string">"磁盘: ${disk}%"</span><br>
+                            <span class="code-keyword">if</span> [ <span class="code-string">"$disk"</span> -gt <span class="code-string">"$THRESHOLD"</span> ]; <span class="code-keyword">then</span><br>
+                            &nbsp;&nbsp;<span class="code-keyword">echo</span> <span class="code-string">"🚨 超过${THRESHOLD}%！"</span><br>
+                            <span class="code-keyword">else</span><br>
+                            &nbsp;&nbsp;<span class="code-keyword">echo</span> <span class="code-string">"✅ 正常"</span><br>
+                            <span class="code-keyword">fi</span>
+                        </div>
+                    </div>
+                    <div class="two-col">
+                        <div class="card" style="background: #ECFDF5; padding: 0.5rem;">
+                            <h4 style="color: var(--ac-green); font-size: 0.85rem; margin-bottom: 0.3rem;">🔍 调试技巧</h4>
+                            <div class="code-block" style="font-size: 0.7rem; padding: 0.3rem;">
+                                <span class="code-keyword">sh</span> -n script.sh <span class="code-comment"># 语法检查</span><br>
+                                <span class="code-keyword">sh</span> -x script.sh <span class="code-comment"># 跟踪执行</span>
+                            </div>
+                        </div>
+                        <div class="card" style="background: #EFF6FF; padding: 0.5rem;">
+                            <h4 style="color: var(--ac-blue); font-size: 0.85rem; margin-bottom: 0.3rem;">💡 关键步骤</h4>
+                            <ul class="styled-list">
+                                <li>定义阈值变量</li>
+                                <li>提取使用率数值</li>
+                                <li>if判断+引号</li>
+                                <li>输出状态信息</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- P12: 判断脚本接龙 -->
+        <div class="slide" data-slide="12">
+            <div class="slide-content">
+                <div class="slide-header">
+                    <h2 style="font-size: 1.5rem; font-weight: 700; margin: 0;">🎮 小组任务②：判断脚本接龙</h2>
+                    <span class="slide-number">12 / 22</span>
+                </div>
+                <div class="slide-body">
+                    <div style="text-align: center; margin-bottom: 0.8rem;">
+                        <span class="tag tag-pink" style="font-size: 0.9rem; padding: 0.3rem 1rem;">⏱️ 5分钟</span>
+                        <span class="tag tag-green" style="font-size: 0.9rem; padding: 0.3rem 1rem;">小组协作</span>
+                    </div>
+                    <div class="card" style="margin-bottom: 0.8rem; border: 2px solid var(--ac-green); padding: 0.6rem;">
+                        <h3 style="color: var(--ac-green); margin-bottom: 0.5rem; font-size: 1rem;">🎮 游戏规则</h3>
+                        <p style="font-size: 0.85rem; margin-bottom: 0.5rem;">每组写一段判断模块，拼接成完整监控脚本。</p>
+                        <div class="three-col">
+                            <div style="background: #ECFDF5; padding: 0.5rem; border-radius: 8px; text-align: center;">
+                                <div style="font-size: 1.5rem; margin-bottom: 0.3rem;">🅰️</div>
+                                <h4 style="color: var(--ac-green); font-size: 0.8rem; margin-bottom: 0.3rem;">CPU判断</h4>
+                                <div class="code-block" style="font-size: 0.65rem; padding: 0.3rem; text-align: left;">
+                                    <span class="code-variable">cpu</span>=...<br>
+                                    <span class="code-keyword">if</span> [ ... ]; <span class="code-keyword">then</span><br>
+                                    &nbsp;&nbsp;...<br>
+                                    <span class="code-keyword">fi</span>
+                                </div>
+                            </div>
+                            <div style="background: #EFF6FF; padding: 0.5rem; border-radius: 8px; text-align: center;">
+                                <div style="font-size: 1.5rem; margin-bottom: 0.3rem;">🅱️</div>
+                                <h4 style="color: var(--ac-blue); font-size: 0.8rem; margin-bottom: 0.3rem;">内存判断</h4>
+                                <div class="code-block" style="font-size: 0.65rem; padding: 0.3rem; text-align: left;">
+                                    <span class="code-variable">mem</span>=...<br>
+                                    <span class="code-keyword">if</span> [ ... ]; <span class="code-keyword">then</span><br>
+                                    &nbsp;&nbsp;...<br>
+                                    <span class="code-keyword">fi</span>
+                                </div>
+                            </div>
+                            <div style="background: #FEF3C7; padding: 0.5rem; border-radius: 8px; text-align: center;">
+                                <div style="font-size: 1.5rem; margin-bottom: 0.3rem;">🅲️</div>
+                                <h4 style="color: var(--ac-brown); font-size: 0.8rem; margin-bottom: 0.3rem;">磁盘判断</h4>
+                                <div class="code-block" style="font-size: 0.65rem; padding: 0.3rem; text-align: left;">
+                                    <span class="code-variable">disk</span>=...<br>
+                                    <span class="code-keyword">if</span> [ ... ]; <span class="code-keyword">then</span><br>
+                                    &nbsp;&nbsp;...<br>
+                                    <span class="code-keyword">fi</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="two-col">
+                        <div class="card" style="background: #ECFDF5; padding: 0.5rem;">
+                            <h4 style="color: var(--ac-green); font-size: 0.85rem; margin-bottom: 0.3rem;">🎯 评价</h4>
+                            <ul class="styled-list">
+                                <li>正确获取指标</li>
+                                <li>判断语法正确</li>
+                                <li>输出清晰</li>
+                            </ul>
+                        </div>
+                        <div class="card" style="background: #FEF3C7; padding: 0.5rem;">
+                            <h4 style="color: var(--ac-brown); font-size: 0.85rem; margin-bottom: 0.3rem;">💡 提示</h4>
+                            <ul class="styled-list">
+                                <li>CPU：uptime/top</li>
+                                <li>内存：free -m</li>
+                                <li>磁盘：df -h</li>
+                                <li>阈值统一80%</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- P13: 循环结构 -->
+        <div class="slide" data-slide="13">
+            <div class="slide-content">
+                <div class="slide-header">
+                    <h2 style="font-size: 1.5rem; font-weight: 700; margin: 0;">🔄 知识模块四：循环结构</h2>
+                    <span class="slide-number">13 / 22</span>
+                </div>
+                <div class="slide-body">
+                    <div class="three-col" style="margin-bottom: 0.6rem;">
+                        <div class="card" style="border-top: 3px solid #22c55e; padding: 0.5rem;">
+                            <h3 style="color: #22c55e; font-size: 0.95rem; margin-bottom: 0.4rem;">🔄 while</h3>
+                            <p style="font-size: 0.8rem; margin-bottom: 0.4rem;"><strong>条件为真</strong>时执行</p>
+                            <div class="code-block" style="font-size: 0.7rem; padding: 0.3rem;">
+                                <span class="code-keyword">while</span> [ 条件 ]<br>
+                                <span class="code-keyword">do</span><br>
+                                &nbsp;&nbsp;命令<br>
+                                <span class="code-keyword">done</span>
+                            </div>
+                            <div style="background: #F0FDF4; padding: 0.4rem; border-radius: 6px; margin-top: 0.4rem;">
+                                <p style="font-size: 0.75rem; color: #166534;"><strong>适用：</strong>持续监控</p>
+                            </div>
+                        </div>
+                        <div class="card" style="border-top: 3px solid #3b82f6; padding: 0.5rem;">
+                            <h3 style="color: #3b82f6; font-size: 0.95rem; margin-bottom: 0.4rem;">🔁 until</h3>
+                            <p style="font-size: 0.8rem; margin-bottom: 0.4rem;"><strong>条件为假</strong>时执行</p>
+                            <div class="code-block" style="font-size: 0.7rem; padding: 0.3rem;">
+                                <span class="code-keyword">until</span> [ 条件 ]<br>
+                                <span class="code-keyword">do</span><br>
+                                &nbsp;&nbsp;命令<br>
+                                <span class="code-keyword">done</span>
+                            </div>
+                            <div style="background: #EFF6FF; padding: 0.4rem; border-radius: 6px; margin-top: 0.4rem;">
+                                <p style="font-size: 0.75rem; color: #1E40AF;"><strong>适用：</strong>等待条件</p>
+                            </div>
+                        </div>
+                        <div class="card" style="border-top: 3px solid #f59e0b; padding: 0.5rem;">
+                            <h3 style="color: #f59e0b; font-size: 0.95rem; margin-bottom: 0.4rem;">🔂 for</h3>
+                            <p style="font-size: 0.8rem; margin-bottom: 0.4rem;"><strong>遍历列表</strong>执行</p>
+                            <div class="code-block" style="font-size: 0.7rem; padding: 0.3rem;">
+                                <span class="code-keyword">for</span> var <span class="code-keyword">in</span> list<br>
+                                <span class="code-keyword">do</span><br>
+                                &nbsp;&nbsp;命令<br>
+                                <span class="code-keyword">done</span>
+                            </div>
+                            <div style="background: #FFFBEB; padding: 0.4rem; border-radius: 6px; margin-top: 0.4rem;">
+                                <p style="font-size: 0.75rem; color: #92400E;"><strong>适用：</strong>批量处理</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card card-green" style="padding: 0.6rem;">
+                        <h3 style="font-size: 0.95rem; margin-bottom: 0.4rem;">🎯 for 循环三种写法</h3>
+                        <div class="three-col">
+                            <div>
+                                <h4 style="font-size: 0.8rem; margin-bottom: 0.2rem;">写法一：列表</h4>
+                                <div class="code-block" style="font-size: 0.65rem; padding: 0.3rem; background: rgba(0,0,0,0.25);">
+                                    <span class="code-keyword">for</span> ip <span class="code-keyword">in</span> 1.1 1.2<br>
+                                    <span class="code-keyword">do</span><br>
+                                    &nbsp;&nbsp;<span class="code-keyword">ping</span> $ip<br>
+                                    <span class="code-keyword">done</span>
+                                </div>
+                            </div>
+                            <div>
+                                <h4 style="font-size: 0.8rem; margin-bottom: 0.2rem;">写法二：seq（推荐）</h4>
+                                <div class="code-block" style="font-size: 0.65rem; padding: 0.3rem; background: rgba(0,0,0,0.25);">
+                                    <span class="code-keyword">for</span> i <span class="code-keyword">in</span> <span class="code-variable">$(</span><span class="code-keyword">seq</span> 1 100<span class="code-variable">)</span><br>
+                                    <span class="code-keyword">do</span><br>
+                                    &nbsp;&nbsp;<span class="code-keyword">echo</span> $i<br>
+                                    <span class="code-keyword">done</span>
+                                </div>
+                            </div>
+                            <div>
+                                <h4 style="font-size: 0.8rem; margin-bottom: 0.2rem;">写法三：C风格</h4>
+                                <div class="code-block" style="font-size: 0.65rem; padding: 0.3rem; background: rgba(0,0,0,0.25);">
+                                    <span class="code-keyword">for</span> ((i=1;i&lt;=10;i++))<br>
+                                    <span class="code-keyword">do</span><br>
+                                    &nbsp;&nbsp;<span class="code-keyword">echo</span> $i<br>
+                                    <span class="code-keyword">done</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- P14: 批量用户创建 -->
+        <div class="slide" data-slide="14">
+            <div class="slide-content">
+                <div class="slide-header">
+                    <h2 style="font-size: 1.5rem; font-weight: 700; margin: 0;">📋 案例：批量用户管理</h2>
+                    <span class="slide-number">14 / 22</span>
+                </div>
+                <div class="slide-body">
+                    <div class="two-col">
+                        <div>
+                            <h3 style="color: var(--ac-green); margin-bottom: 0.4rem; font-size: 1rem;">📋 场景</h3>
+                            <div class="card" style="margin-bottom: 0.5rem; padding: 0.5rem;">
+                                <p style="font-size: 0.85rem; line-height: 1.5;">新学期为50名新生<strong>批量创建系统账号</strong>。</p>
+                            </div>
+                            <h3 style="color: var(--ac-green); margin-bottom: 0.4rem; font-size: 1rem;">📄 用户列表</h3>
+                            <div class="card" style="margin-bottom: 0.5rem; padding: 0.5rem;">
+                                <div class="code-block" style="font-size: 0.75rem; padding: 0.3rem;">
+                                    <span class="code-comment"># userlist.txt</span><br>
+                                    zhangsan<br>
+                                    lisi<br>
+                                    wangwu<br>
+                                    ...
+                                </div>
+                            </div>
+                            <div class="card" style="background: #ECFDF5; padding: 0.5rem;">
+                                <h4 style="color: var(--ac-green); font-size: 0.85rem; margin-bottom: 0.3rem;">💡 核心命令</h4>
+                                <div class="code-block" style="font-size: 0.7rem; padding: 0.3rem;">
+                                    <span class="code-keyword">useradd</span> name<br>
+                                    <span class="code-keyword">passwd</span> name
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <h3 style="color: var(--ac-green); margin-bottom: 0.4rem; font-size: 1rem;">📝 完整脚本</h3>
+                            <div class="card" style="border: 2px solid var(--ac-green); padding: 0.5rem;">
+                                <div class="code-block" style="font-size: 0.7rem; line-height: 1.5; padding: 0.4rem;">
+                                    <span class="code-comment">#!/bin/bash</span><br>
+                                    <span class="code-comment"># 批量创建用户</span><br>
+                                    <span class="code-variable">PWD</span>=<span class="code-string">"Stu2024#"</span><br><br>
+                                    <span class="code-keyword">for</span> user <span class="code-keyword">in</span> <span class="code-variable">$(</span><span class="code-keyword">cat</span> userlist.txt<span class="code-variable">)</span><br>
+                                    <span class="code-keyword">do</span><br>
+                                    &nbsp;&nbsp;<span class="code-keyword">useradd</span> <span class="code-string">"$user"</span><br>
+                                    &nbsp;&nbsp;<span class="code-keyword">echo</span> <span class="code-string">"$PWD"</span> <span class="code-variable">|</span> <span class="code-keyword">passwd</span> --stdin <span class="code-string">"$user"</span><br>
+                                    &nbsp;&nbsp;<span class="code-keyword">echo</span> <span class="code-string">"✅ $user 创建成功"</span><br>
+                                    <span class="code-keyword">done</span><br><br>
+                                    <span class="code-keyword">echo</span> <span class="code-string">"🎉 全部完成！"</span>
+                                </div>
+                            </div>
+                            <div style="margin-top: 0.4rem; display: flex; gap: 0.3rem; flex-wrap: wrap;">
+                                <span class="tag tag-green">for循环</span>
+                                <span class="tag tag-green">文件读取</span>
+                                <span class="tag tag-brown">管道</span>
+                                <span class="tag tag-pink">真实场景</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- P15: 网络连通性检测 -->
+        <div class="slide" data-slide="15">
+            <div class="slide-content">
+                <div class="slide-header">
+                    <h2 style="font-size: 1.5rem; font-weight: 700; margin: 0;">🌐 进阶：网络连通性检测</h2>
+                    <span class="slide-number">15 / 22</span>
+                </div>
+                <div class="slide-body">
+                    <div style="margin-bottom: 0.5rem;">
+                        <span class="tag tag-pink">综合应用</span>
+                        <span class="tag tag-red">进阶</span>
+                    </div>
+                    <div class="two-col">
+                        <div>
+                            <h3 style="color: var(--ac-green); margin-bottom: 0.3rem; font-size: 1rem;">📋 任务</h3>
+                            <div class="card" style="margin-bottom: 0.4rem; padding: 0.5rem;">
+                                <p style="font-size: 0.85rem; line-height: 1.5;">检测 <strong>192.168.1.1~100</strong> 的连通状态。</p>
+                            </div>
+                            <h3 style="color: var(--ac-green); margin-bottom: 0.3rem; font-size: 1rem;">🔧 要点</h3>
+                            <div class="card" style="margin-bottom: 0.4rem; padding: 0.5rem;">
+                                <ul class="styled-list">
+                                    <li><code>ping -c 1 -W 1</code></li>
+                                    <li><code>$?</code> 返回值判断</li>
+                                    <li><code>&</code> 后台执行</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div>
+                            <h3 style="color: var(--ac-green); margin-bottom: 0.3rem; font-size: 1rem;">📝 脚本</h3>
+                            <div class="card" style="border: 2px solid var(--ac-green); padding: 0.5rem;">
+                                <div class="code-block" style="font-size: 0.7rem; line-height: 1.5; padding: 0.3rem;">
+                                    <span class="code-comment">#!/bin/bash</span><br>
+                                    <span class="code-keyword">echo</span> <span class="code-string">"检测 192.168.1.x..."</span><br><br>
+                                    <span class="code-keyword">for</span> i <span class="code-keyword">in</span> <span class="code-variable">$(</span><span class="code-keyword">seq</span> 1 100<span class="code-variable">)</span><br>
+                                    <span class="code-keyword">do</span><br>
+                                    &nbsp;&nbsp;<span class="code-variable">ip</span>=<span class="code-string">"192.168.1.$i"</span><br>
+                                    &nbsp;&nbsp;<span class="code-keyword">ping</span> -c1 -W1 <span class="code-variable">$ip</span> &gt;/dev/null 2&gt;&amp;1<br>
+                                    &nbsp;&nbsp;<span class="code-keyword">if</span> [ <span class="code-variable">$?</span> -eq 0 ]; <span class="code-keyword">then</span><br>
+                                    &nbsp;&nbsp;&nbsp;&nbsp;<span class="code-keyword">echo</span> <span class="code-string">"✅ $ip 在线"</span><br>
+                                    &nbsp;&nbsp;<span class="code-keyword">else</span><br>
+                                    &nbsp;&nbsp;&nbsp;&nbsp;<span class="code-keyword">echo</span> <span class="code-string">"❌ $ip 离线"</span><br>
+                                    &nbsp;&nbsp;<span class="code-keyword">fi</span><br>
+                                    <span class="code-keyword">done</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card card-yellow" style="margin-top: 0.5rem; padding: 0.5rem;">
+                        <p style="text-align: center; font-weight: 600; font-size: 0.9rem;">🎯 用到了所有知识：变量+判断+循环+命令替换+管道+重定向</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- P16: 思政融入 -->
+        <div class="slide" data-slide="16">
+            <div class="slide-content">
+                <div class="slide-header">
+                    <h2 style="font-size: 1.5rem; font-weight: 700; margin: 0;">⚠️ 思政：自动化的双刃剑</h2>
+                    <span class="slide-number">16 / 22</span>
+                </div>
+                <div class="slide-body">
+                    <div class="two-col">
+                        <div>
+                            <h3 style="color: var(--ac-red); margin-bottom: 0.4rem; font-size: 1rem;">💥 真实案例</h3>
+                            <div class="card" style="border-left: 3px solid var(--ac-red); margin-bottom: 0.5rem; padding: 0.5rem;">
+                                <p style="font-size: 0.85rem; line-height: 1.5; margin-bottom: 0.4rem;"><strong>2016年</strong>，实习生变量未赋值：</p>
+                                <div class="code-block" style="font-size: 0.7rem; padding: 0.3rem;">
+                                    <span class="code-variable">path</span>=<span class="code-string">""</span><br>
+                                    <span class="code-keyword">rm</span> -rf /<span class="code-variable">$path</span>/*<br>
+                                    <span class="code-comment"># 实际执行：rm -rf /*</span>
+                                </div>
+                                <p style="margin-top: 0.4rem; color: var(--ac-red); font-weight: 600; font-size: 0.85rem;">💥 数据全删，停机数小时</p>
+                            </div>
+                            <h3 style="color: var(--ac-green); margin-bottom: 0.4rem; font-size: 1rem;">🛡️ 安全三原则</h3>
+                            <div class="card" style="background: #ECFDF5; padding: 0.5rem;">
+                                <div class="step-item">
+                                    <div class="step-num">1</div>
+                                    <div style="font-size: 0.85rem;"><strong>先用 -x 调试</strong></div>
+                                </div>
+                                <div class="step-item">
+                                    <div class="step-num">2</div>
+                                    <div style="font-size: 0.85rem;"><strong>删除前先 echo</strong></div>
+                                </div>
+                                <div class="step-item">
+                                    <div class="step-num">3</div>
+                                    <div style="font-size: 0.85rem;"><strong>永远保留备份</strong></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <h3 style="color: var(--ac-green); margin-bottom: 0.4rem; font-size: 1rem;">💬 讨论</h3>
+                            <div class="card" style="margin-bottom: 0.5rem; padding: 0.5rem;">
+                                <ul class="styled-list">
+                                    <li>权限过大谁负责？</li>
+                                    <li>AI代码直接运行风险？</li>
+                                    <li>快速交付 vs 安全稳定？</li>
+                                    <li>你的职业底线？</li>
+                                </ul>
+                            </div>
+                            <div class="card card-green" style="padding: 0.6rem;">
+                                <h3 style="font-size: 1rem; margin-bottom: 0.4rem;">🎯 核心</h3>
+                                <p style="font-size: 0.9rem; line-height: 1.6;"><strong>技术能力决定你能走多快</strong></p>
+                                <p style="font-size: 0.9rem; line-height: 1.6;"><strong>职业伦理决定你能走多远</strong></p>
+                                <div style="margin-top: 0.4rem; padding-top: 0.4rem; border-top: 1px solid rgba(255,255,255,0.3);">
+                                    <p style="font-size: 0.8rem;">工具无善恶，使用者负责 🛡️</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- P17: 脚本调试大作战 -->
+        <div class="slide" data-slide="17">
+            <div class="slide-content">
+                <div class="slide-header">
+                    <h2 style="font-size: 1.5rem; font-weight: 700; margin: 0;">🐛 活动：脚本调试大作战</h2>
+                    <span class="slide-number">17 / 22</span>
+                </div>
+                <div class="slide-body">
+                    <div style="text-align: center; margin-bottom: 0.6rem;">
+                        <span class="tag tag-pink" style="font-size: 0.9rem; padding: 0.3rem 1rem;">⏱️ 5分钟</span>
+                        <span class="tag tag-red" style="font-size: 0.9rem; padding: 0.3rem 1rem;">🔥 找Bug</span>
+                    </div>
+                    <div class="two-col">
+                        <div>
+                            <h3 style="color: var(--ac-red); margin-bottom: 0.3rem; font-size: 1rem;">🐛 Buggy Script</h3>
+                            <div class="card" style="border: 2px solid var(--ac-red); padding: 0.5rem;">
+                                <div class="code-block" style="font-size: 0.7rem; line-height: 1.5; padding: 0.3rem;">
+                                    <span class="code-comment">#!/bin/bash</span><br>
+                                    <span class="code-comment"># 有错误的脚本</span><br><br>
+                                    <span class="code-variable">THRESHOLD</span> = 80<br><br>
+                                    <span class="code-variable">disk</span>=<span class="code-variable">$(df</span> -h / <span class="code-variable">|</span> awk <span class="code-string">'NR==2{print $5}'</span><span class="code-variable">)</span><br><br>
+                                    <span class="code-keyword">if</span> [ <span class="code-variable">$disk</span> -gt <span class="code-variable">$THRESHOLD</span> ]<br>
+                                    <span class="code-keyword">then</span><br>
+                                    &nbsp;&nbsp;<span class="code-keyword">echo</span> <span class="code-string">"告警: $disk"</span><br>
+                                    <span class="code-keyword">fi</span>
+                                </div>
+                            </div>
+                            <p style="margin-top: 0.3rem; color: var(--ac-red); font-weight: 600; font-size: 0.85rem;">⚠️ 3处错误，请找出并修正！</p>
+                        </div>
+                        <div>
+                            <h3 style="color: #22c55e; margin-bottom: 0.3rem; font-size: 1rem;">✅ 调试步骤</h3>
+                            <div class="card" style="background: #F0FDF4; margin-bottom: 0.4rem; padding: 0.5rem;">
+                                <div class="step-item">
+                                    <div class="step-num">1</div>
+                                    <div style="font-size: 0.85rem;"><strong>语法检查</strong><br><code>sh -n buggy.sh</code></div>
+                                </div>
+                                <div class="step-item">
+                                    <div class="step-num">2</div>
+                                    <div style="font-size: 0.85rem;"><strong>跟踪执行</strong><br><code>sh -x buggy.sh</code></div>
+                                </div>
+                                <div class="step-item">
+                                    <div class="step-num">3</div>
+                                    <div style="font-size: 0.85rem;"><strong>分析输出</strong><br>定位错误行</div>
+                                </div>
+                                <div class="step-item">
+                                    <div class="step-num">4</div>
+                                    <div style="font-size: 0.85rem;"><strong>修正测试</strong><br>验证修复</div>
+                                </div>
+                            </div>
+                            <div class="card" style="background: #FEF3C7; padding: 0.5rem;">
+                                <h4 style="color: var(--ac-brown); font-size: 0.85rem; margin-bottom: 0.3rem;">💡 提示</h4>
+                                <ul class="styled-list">
+                                    <li>变量赋值空格</li>
+                                    <li>if语句完整性</li>
+                                    <li>变量引用安全</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- P18: 实战任务 -->
+        <div class="slide" data-slide="18">
+            <div class="slide-content">
+                <div class="slide-header">
+                    <h2 style="font-size: 1.5rem; font-weight: 700; margin: 0;">🏆 实战：系统监控脚本开发</h2>
+                    <span class="slide-number">18 / 22</span>
+                </div>
+                <div class="slide-body">
+                    <div style="text-align: center; margin-bottom: 0.8rem;">
+                        <div style="display: inline-block; background: linear-gradient(135deg, var(--ac-green), var(--ac-green-dark)); color: white; padding: 0.8rem 2rem; border-radius: 12px; font-size: 1.1rem; font-weight: 700; box-shadow: 0 4px 12px rgba(0,0,0,0.15); border: 3px solid var(--ac-brown-light);">
+                            🏆 终极挑战：整合所有知识
+                        </div>
+                    </div>
+                    <div class="card" style="border: 2px solid var(--ac-green); margin-bottom: 0.6rem; padding: 0.6rem;">
+                        <h3 style="color: var(--ac-green); margin-bottom: 0.4rem; font-size: 0.95rem;">📋 任务要求</h3>
+                        <div class="three-col">
+                            <div style="background: #F0FDF4; padding: 0.4rem; border-radius: 6px;">
+                                <h4 style="color: #166534; font-size: 0.8rem; margin-bottom: 0.2rem;">必须包含</h4>
+                                <ul class="styled-list">
+                                    <li>变量定义</li>
+                                    <li>if判断</li>
+                                    <li>for/while循环</li>
+                                    <li>命令替换</li>
+                                </ul>
+                            </div>
+                            <div style="background: #EFF6FF; padding: 0.4rem; border-radius: 6px;">
+                                <h4 style="color: #1E40AF; font-size: 0.8rem; margin-bottom: 0.2rem;">监控指标</h4>
+                                <ul class="styled-list">
+                                    <li>CPU负载</li>
+                                    <li>内存使用</li>
+                                    <li>磁盘空间</li>
+                                    <li>异常告警</li>
+                                </ul>
+                            </div>
+                            <div style="background: #FFFBEB; padding: 0.4rem; border-radius: 6px;">
+                                <h4 style="color: #92400E; font-size: 0.8rem; margin-bottom: 0.2rem;">代码规范</h4>
+                                <ul class="styled-list">
+                                    <li>Shebang</li>
+                                    <li>注释完整</li>
+                                    <li>命名规范</li>
+                                    <li>缩进统一</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="two-col">
+                        <div class="card" style="background: #ECFDF5; padding: 0.5rem;">
+                            <h4 style="color: var(--ac-green); font-size: 0.85rem; margin-bottom: 0.3rem;">⏱️ 时间安排</h4>
+                            <ul class="styled-list">
+                                <li>需求分析：2分钟</li>
+                                <li>脚本编写：10分钟</li>
+                                <li>调试测试：5分钟</li>
+                                <li>成果展示：3分钟</li>
+                            </ul>
+                        </div>
+                        <div class="card" style="background: #FEF3C7; padding: 0.5rem;">
+                            <h4 style="color: var(--ac-brown); font-size: 0.85rem; margin-bottom: 0.3rem;">🎯 评价标准</h4>
+                            <ul class="styled-list">
+                                <li>功能完整 40分</li>
+                                <li>逻辑清晰 30分</li>
+                                <li>语法正确 20分</li>
+                                <li>异常处理 10分</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- P19: 成果展示 -->
+        <div class="slide" data-slide="19">
+            <div class="slide-content">
+                <div class="slide-header">
+                    <h2 style="font-size: 1.5rem; font-weight: 700; margin: 0;">🎤 成果展示：小组路演</h2>
+                    <span class="slide-number">19 / 22</span>
+                </div>
+                <div class="slide-body">
+                    <div style="text-align: center; margin-bottom: 0.8rem;">
+                        <span class="tag tag-green" style="font-size: 0.85rem; padding: 0.2rem 0.8rem;">每组 2 分钟</span>
+                        <span class="tag tag-pink" style="font-size: 0.85rem; padding: 0.2rem 0.8rem;">互评打分</span>
+                    </div>
+                    <div class="three-col" style="margin-bottom: 0.6rem;">
+                        <div class="card card-green" style="text-align: center; padding: 0.6rem;">
+                            <div style="font-size: 2rem; margin-bottom: 0.3rem;">🎤</div>
+                            <h3 style="font-size: 0.95rem; margin-bottom: 0.2rem;">展示环节</h3>
+                            <p style="font-size: 0.75rem; opacity: 0.9;">运行脚本，展示结果</p>
+                            <p style="font-size: 0.75rem; opacity: 0.9;">说明设计思路</p>
+                        </div>
+                        <div class="card card-blue" style="text-align: center; padding: 0.6rem;">
+                            <div style="font-size: 2rem; margin-bottom: 0.3rem;">❓</div>
+                            <h3 style="font-size: 0.95rem; margin-bottom: 0.2rem;">问答环节</h3>
+                            <p style="font-size: 0.75rem; opacity: 0.9;">回答提问</p>
+                            <p style="font-size: 0.75rem; opacity: 0.9;">解释技术选型</p>
+                        </div>
+                        <div class="card card-orange" style="text-align: center; padding: 0.6rem;">
+                            <div style="font-size: 2rem; margin-bottom: 0.3rem;">⭐</div>
+                            <h3 style="font-size: 0.95rem; margin-bottom: 0.2rem;">互评环节</h3>
+                            <p style="font-size: 0.75rem; opacity: 0.9;">四维度打分</p>
+                            <p style="font-size: 0.75rem; opacity: 0.9;">提出改进建议</p>
+                        </div>
+                    </div>
+                    <div class="card" style="border: 2px solid var(--ac-green); padding: 0.5rem;">
+                        <h3 style="color: var(--ac-green); margin-bottom: 0.4rem; text-align: center; font-size: 0.95rem;">📊 互评评分表</h3>
+                        <div class="three-col">
+                            <div style="text-align: center; padding: 0.4rem;">
+                                <div style="font-size: 1.5rem; font-weight: 700; color: var(--ac-green);">40%</div>
+                                <div style="font-size: 0.8rem; color: #666;">功能完整性</div>
+                            </div>
+                            <div style="text-align: center; padding: 0.4rem;">
+                                <div style="font-size: 1.5rem; font-weight: 700; color: var(--ac-blue);">30%</div>
+                                <div style="font-size: 0.8rem; color: #666;">逻辑清晰度</div>
+                            </div>
+                            <div style="text-align: center; padding: 0.4rem;">
+                                <div style="font-size: 1.5rem; font-weight: 700; color: var(--ac-orange);">30%</div>
+                                <div style="font-size: 0.8rem; color: #666;">代码规范性</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- P20: 思维导图总结 -->
+        <div class="slide" data-slide="20">
+            <div class="slide-content">
+                <div class="slide-header">
+                    <h2 style="font-size: 1.5rem; font-weight: 700; margin: 0;">🌳 知识梳理：思维导图</h2>
+                    <span class="slide-number">20 / 22</span>
+                </div>
+                <div class="slide-body" style="display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                    <div style="background: var(--ac-green); color: white; padding: 0.8rem 1.5rem; border-radius: 12px; font-size: 1.1rem; font-weight: 700; margin-bottom: 1rem; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+                        🌳 Shell编程知识树
+                    </div>
+                    <div style="display: flex; flex-direction: column; align-items: center; gap: 0.8rem; width: 100%; max-width: 700px;">
+                        <div style="display: flex; gap: 1rem; width: 100%; justify-content: center;">
+                            <div style="width: 2px; height: 20px; background: var(--ac-brown-light);"></div>
+                            <div style="width: 2px; height: 20px; background: var(--ac-brown-light);"></div>
+                            <div style="width: 2px; height: 20px; background: var(--ac-brown-light);"></div>
+                        </div>
+                        <div style="display: flex; gap: 0.8rem; width: 100%; justify-content: center;">
+                            <div style="flex: 1; max-width: 200px;">
+                                <div style="background: linear-gradient(135deg, #22c55e, #16a34a); color: white; padding: 0.5rem; border-radius: 10px; text-align: center; font-weight: 700; font-size: 0.9rem; margin-bottom: 0.4rem;">
+                                    📦 变量
+                                </div>
+                                <div style="background: white; border: 2px solid #22c55e; border-radius: 8px; padding: 0.4rem;">
+                                    <p style="font-size: 0.75rem; margin-bottom: 0.15rem;">• 定义与引用</p>
+                                    <p style="font-size: 0.75rem; margin-bottom: 0.15rem;">• 引号区别</p>
+                                    <p style="font-size: 0.75rem; margin-bottom: 0.15rem;">• 命令替换</p>
+                                    <p style="font-size: 0.75rem;">• 数值运算</p>
+                                </div>
+                            </div>
+                            <div style="flex: 1; max-width: 200px;">
+                                <div style="background: linear-gradient(135deg, #3b82f6, #2563eb); color: white; padding: 0.5rem; border-radius: 10px; text-align: center; font-weight: 700; font-size: 0.9rem; margin-bottom: 0.4rem;">
+                                    🧠 判断
+                                </div>
+                                <div style="background: white; border: 2px solid #3b82f6; border-radius: 8px; padding: 0.4rem;">
+                                    <p style="font-size: 0.75rem; margin-bottom: 0.15rem;">• test命令</p>
+                                    <p style="font-size: 0.75rem; margin-bottom: 0.15rem;">• []中括号</p>
+                                    <p style="font-size: 0.75rem; margin-bottom: 0.15rem;">• if-then-else</p>
+                                    <p style="font-size: 0.75rem;">• case分支</p>
+                                </div>
+                            </div>
+                            <div style="flex: 1; max-width: 200px;">
+                                <div style="background: linear-gradient(135deg, #f59e0b, #d97706); color: white; padding: 0.5rem; border-radius: 10px; text-align: center; font-weight: 700; font-size: 0.9rem; margin-bottom: 0.4rem;">
+                                    🔄 循环
+                                </div>
+                                <div style="background: white; border: 2px solid #f59e0b; border-radius: 8px; padding: 0.4rem;">
+                                    <p style="font-size: 0.75rem; margin-bottom: 0.15rem;">• for遍历</p>
+                                    <p style="font-size: 0.75rem; margin-bottom: 0.15rem;">• while条件</p>
+                                    <p style="font-size: 0.75rem; margin-bottom: 0.15rem;">• until等待</p>
+                                    <p style="font-size: 0.75rem;">• seq序列</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 1rem; width: 100%; justify-content: center; margin-top: 0.3rem;">
+                            <div style="width: 2px; height: 15px; background: var(--ac-brown-light);"></div>
+                            <div style="width: 2px; height: 15px; background: var(--ac-brown-light);"></div>
+                            <div style="width: 2px; height: 15px; background: var(--ac-brown-light);"></div>
+                        </div>
+                        <div style="background: linear-gradient(135deg, var(--ac-brown-light), #b8956a); color: white; padding: 0.5rem 1.5rem; border-radius: 10px; font-weight: 700; font-size: 0.9rem;">
+                            🎯 实战：系统监控 · 批量处理 · 自动化运维
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- P21: 作业布置 -->
+        <div class="slide" data-slide="21">
+            <div class="slide-content">
+                <div class="slide-header">
+                    <h2 style="font-size: 1.5rem; font-weight: 700; margin: 0;">📚 课后挑战：日志分析脚本</h2>
+                    <span class="slide-number">21 / 22</span>
+                </div>
+                <div class="slide-body">
+                    <div style="text-align: center; margin-bottom: 0.8rem;">
+                        <div style="display: inline-block; background: linear-gradient(135deg, var(--ac-orange), #d97706); color: white; padding: 0.6rem 1.5rem; border-radius: 12px; font-size: 1rem; font-weight: 700; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+                            📚 课后作业 · 延伸学习
+                        </div>
+                    </div>
+                    <div class="two-col">
+                        <div>
+                            <h3 style="color: var(--ac-green); margin-bottom: 0.3rem; font-size: 0.95rem;">📋 任务</h3>
+                            <div class="card" style="margin-bottom: 0.4rem; border-left: 3px solid var(--ac-orange); padding: 0.5rem;">
+                                <p style="font-size: 0.85rem; line-height: 1.5;">分析 Nginx 日志，提取 <strong>访问次数最多的 10 个 IP</strong>。</p>
+                            </div>
+                            <h3 style="color: var(--ac-green); margin-bottom: 0.3rem; font-size: 0.95rem;">📄 日志格式</h3>
+                            <div class="card" style="margin-bottom: 0.4rem; padding: 0.4rem;">
+                                <div class="code-block" style="font-size: 0.7rem; padding: 0.3rem;">
+                                    192.168.1.10 - - [10/May/2024...]<br>
+                                    "GET /index.html HTTP/1.1" 200 1234
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <h3 style="color: var(--ac-green); margin-bottom: 0.3rem; font-size: 0.95rem;">💡 提示</h3>
+                            <div class="card" style="margin-bottom: 0.4rem; background: #ECFDF5; padding: 0.5rem;">
+                                <h4 style="color: var(--ac-green); font-size: 0.8rem; margin-bottom: 0.2rem;">命令组合</h4>
+                                <div class="code-block" style="font-size: 0.65rem; padding: 0.3rem;">
+                                    <span class="code-keyword">awk</span> '{print $1}'<br>
+                                    <span class="code-keyword">sort</span> <span class="code-variable">|</span> <span class="code-keyword">uniq</span> -c<br>
+                                    <span class="code-keyword">sort</span> -rn <span class="code-variable">|</span> <span class="code-keyword">head</span> -10
+                                </div>
+                            </div>
+                            <div class="card" style="background: #FEF3C7; padding: 0.5rem;">
+                                <h4 style="color: var(--ac-brown); font-size: 0.8rem; margin-bottom: 0.2rem;">📤 提交</h4>
+                                <ul class="styled-list">
+                                    <li>完整脚本文件</li>
+                                    <li>执行截图</li>
+                                    <li>代码注释</li>
+                                    <li>问题及解决</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="text-align: center; margin-top: 0.5rem;">
+                        <span class="tag tag-green">管道组合</span>
+                        <span class="tag tag-green">文本处理</span>
+                        <span class="tag tag-brown">真实场景</span>
+                        <span class="tag tag-pink">综合应用</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- P22: 结束页 -->
+        <div class="slide" data-slide="22">
+            <div class="slide-content" style="background: linear-gradient(135deg, #6B8E5E 0%, #4A6B3F 100%); justify-content: center; align-items: center; text-align: center; color: white; overflow: hidden;">
+                <div style="position: absolute; top: 10%; left: 10%; font-size: 4rem; opacity: 0.3; animation: leafFloat 8s infinite;">🍃</div>
+                <div style="position: absolute; top: 20%; right: 15%; font-size: 3rem; opacity: 0.3; animation: leafFloat 10s infinite 2s;">🌸</div>
+                <div style="position: absolute; bottom: 15%; left: 20%; font-size: 3.5rem; opacity: 0.3; animation: leafFloat 9s infinite 4s;">🍄</div>
+                <div style="position: absolute; bottom: 25%; right: 10%; font-size: 3rem; opacity: 0.3; animation: leafFloat 11s infinite 1s;">🌿</div>
+
+                <div style="margin-bottom: 2rem; font-size: 4rem;">🐚</div>
+                <h1 style="font-size: 2.8rem; font-weight: 900; margin-bottom: 1rem; letter-spacing: 2px; text-shadow: 2px 2px 4px rgba(0,0,0,0.2);">Shell编程之旅</h1>
+                <p style="font-size: 1.3rem; color: #F0E68C; margin-bottom: 2rem; font-weight: 400;">多写 · 多练 · 多思考 🌿</p>
+                <div style="display: flex; gap: 2.5rem; margin-top: 1.5rem;">
+                    <div style="text-align: center;">
+                        <div style="font-size: 2.5rem; margin-bottom: 0.4rem;">✍️</div>
+                        <div style="font-size: 1.1rem;">多写</div>
+                        <div style="font-size: 0.9rem; opacity: 0.7;">动手实践</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="font-size: 2.5rem; margin-bottom: 0.4rem;">🏋️</div>
+                        <div style="font-size: 1.1rem;">多练</div>
+                        <div style="font-size: 0.9rem; opacity: 0.7;">完成任务</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="font-size: 2.5rem; margin-bottom: 0.4rem;">🧠</div>
+                        <div style="font-size: 1.1rem;">多思考</div>
+                        <div style="font-size: 0.9rem; opacity: 0.7;">举一反三</div>
+                    </div>
+                </div>
+                <div style="position: absolute; bottom: 3rem; font-size: 1rem; opacity: 0.7; max-width: 500px; line-height: 1.8;">
+                    Shell是通往自动化运维的钥匙 🗝️<br>
+                    当你能把重复的工作交给脚本，你就有时间去思考更有价值的问题
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- 导航控制 -->
+    <div class="nav-controls">
+        <button class="nav-btn" id="prevBtn" onclick="prevSlide()">◀ 上一页</button>
+        <span class="page-indicator" id="pageIndicator">1 / 22</span>
+        <button class="nav-btn" id="nextBtn" onclick="nextSlide()">下一页 ▶</button>
+    </div>
+
+    <script>
+        // 幻灯片控制
+        let currentSlide = 1;
+        const totalSlides = 22;
+        let startTime = null;
+        let timerInterval = null;
+        let isScrolling = false;
+
+        function updateSlide() {
+            const slides = document.querySelectorAll('.slide');
+            slides.forEach((slide, index) => {
+                slide.classList.remove('active', 'prev');
+                if (index + 1 === currentSlide) {
+                    slide.classList.add('active');
+                } else if (index + 1 < currentSlide) {
+                    slide.classList.add('prev');
+                }
+            });
+
+            document.getElementById('pageIndicator').textContent = currentSlide + ' / ' + totalSlides;
+            document.getElementById('progressBar').style.width = (currentSlide / totalSlides * 100) + '%';
+            document.getElementById('prevBtn').disabled = currentSlide === 1;
+            document.getElementById('nextBtn').disabled = currentSlide === totalSlides;
+
+            // 重置当前slide的滚动位置
+            const activeSlide = document.querySelector('.slide.active .slide-body');
+            if (activeSlide) {
+                activeSlide.scrollTop = 0;
+            }
+        }
+
+        function nextSlide() {
+            if (currentSlide < totalSlides) {
+                currentSlide++;
+                updateSlide();
+            }
+        }
+
+        function prevSlide() {
+            if (currentSlide > 1) {
+                currentSlide--;
+                updateSlide();
+            }
+        }
+
+        // 键盘控制
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ') {
+                e.preventDefault();
+                nextSlide();
+            } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+                e.preventDefault();
+                prevSlide();
+            } else if (e.key === 'Home') {
+                e.preventDefault();
+                currentSlide = 1;
+                updateSlide();
+            } else if (e.key === 'End') {
+                e.preventDefault();
+                currentSlide = totalSlides;
+                updateSlide();
+            }
+        });
+
+        // 鼠标滚轮控制 - 改进：检测slide-body是否可滚动
+        let wheelTimeout = null;
+        let wheelAccumulation = 0;
+        const WHEEL_THRESHOLD = 50;
+
+        document.addEventListener('wheel', function(e) {
+            // 检查当前活动的slide-body是否可滚动
+            const activeSlideBody = document.querySelector('.slide.active .slide-body');
+            if (activeSlideBody) {
+                const canScrollUp = activeSlideBody.scrollTop > 0;
+                const canScrollDown = activeSlideBody.scrollTop < (activeSlideBody.scrollHeight - activeSlideBody.clientHeight - 2);
+
+                // 如果内容可滚动且滚动方向与内容方向一致，则让slide-body消费滚动事件
+                if ((e.deltaY > 0 && canScrollDown) || (e.deltaY < 0 && canScrollUp)) {
+                    // 让默认滚动行为发生，不拦截
+                    return;
+                }
+            }
+
+            // 否则，用于翻页
+            e.preventDefault();
+
+            if (wheelTimeout) return;
+
+            wheelAccumulation += e.deltaY;
+
+            if (Math.abs(wheelAccumulation) >= WHEEL_THRESHOLD) {
+                wheelAccumulation = 0;
+                wheelTimeout = setTimeout(() => {
+                    wheelTimeout = null;
+                }, 400);
+
+                if (e.deltaY > 0) {
+                    nextSlide();
+                } else {
+                    prevSlide();
+                }
+            }
+        }, { passive: false });
+
+        // 计时器
+        function startTimer() {
+            startTime = Date.now();
+            timerInterval = setInterval(() => {
+                const elapsed = Math.floor((Date.now() - startTime) / 1000);
+                const minutes = Math.floor(elapsed / 60).toString().padStart(2, '0');
+                const seconds = (elapsed % 60).toString().padStart(2, '0');
+                document.getElementById('timer').textContent = '⏱️ ' + minutes + ':' + seconds;
+            }, 1000);
+        }
+
+        // 初始化
+        updateSlide();
+        startTimer();
+    </script>
+</body>
+</html>
